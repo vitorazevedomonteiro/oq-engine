@@ -40,15 +40,6 @@ class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
         super().__init__()
         self.cache = {"corma": None}
 
-    @abstractmethod
-    def get_correlation(self, from_imt: IMT, to_imt: IMT) -> float:
-        """
-        :param from_imt:
-            An intensity measure type
-        :param to_imt:
-            An intensity measure type
-        :return: a scalar
-        """
 
     def _get_correlation_matrix(self, sites: SiteCollection, imts: List):
         """

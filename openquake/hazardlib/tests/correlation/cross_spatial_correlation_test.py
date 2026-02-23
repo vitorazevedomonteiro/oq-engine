@@ -18,8 +18,7 @@ import unittest
 import numpy
 
 from openquake.hazardlib.imt import SA, PGA
-from openquake.hazardlib.correlation.cross_spatial_correlation import LothBaker2013CorrelationModel, \
-                                                MarkhvidaEtAl2018CorrelationModel
+from openquake.hazardlib.correlation.cross_spatial_correlation import LothBaker2013CorrelationModel
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
 
@@ -34,39 +33,24 @@ class LothBaker2013CorrelationMatrixTestCase(unittest.TestCase):
 
     def test(self):
         cormo = LothBaker2013CorrelationModel()
-        imts = [SA(period=0.1, damping=5),SA(period=1.0, damping=5)]
+        imts = [SA(period=0.1, damping=5), SA(period=1.0, damping=5)]
         corma = cormo.get_correlation_model(self.SITECOL, imts)
         aaae(corma, [[1,          0.03823366, 1,          0.03823366],
                      [0.03823366, 1,          0.03823366, 0.00146181],
                      [1,          0.03823366, 1,          0.03823366],
                      [0.03823366, 0.00146181, 0.03823366, 1]])
 
-        imt = SA(period=0.95, damping=5)
-        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        imts = [SA(period=0.5, damping=5), SA(period=5.0, damping=5)]
+        corma = cormo._get_correlation_matrix(self.SITECOL, imts)
         aaae(corma, [[1,          0.26107857, 1,          0.26107857],
                      [0.26107857, 1,          0.26107857, 0.06816202],
                      [1,          0.26107857, 1,          0.26107857],
                      [0.26107857, 0.06816202, 0.26107857, 1]])
 
-    def test_clustered(self):
-        cormo = JB2009CorrelationModel(vs30_clustering=True)
-        imt = SA(period=0.001, damping=5)
-        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
-        aaae(corma, [[1,          0.44046654, 1,          0.44046654],
-                     [0.44046654, 1,          0.44046654, 0.19401077],
-                     [1,          0.44046654, 1,          0.44046654],
-                     [0.44046654, 0.19401077, 0.44046654, 1]])
-
-        imt = SA(period=0.5, damping=5)
-        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
-        aaae(corma, [[1,          0.36612758, 1,          0.36612758],
-                     [0.36612758, 1,          0.36612758, 0.1340494],
-                     [1,          0.36612758, 1,          0.36612758],
-                     [0.36612758, 0.1340494, 0.36612758, 1]])
 
     def test_period_one_and_above(self):
-        cormo = JB2009CorrelationModel(vs30_clustering=False)
-        cormo2 = JB2009CorrelationModel(vs30_clustering=True)
+        cormo = LothBaker2013CorrelationModel()
+        cormo2 = LothBaker2013CorrelationModel(vs30_clustering=True)
         imt = SA(period=1.0, damping=5)
         corma = cormo._get_correlation_matrix(self.SITECOL, imt)
         aaae(corma, [[1,         0.2730787, 1,          0.2730787],
