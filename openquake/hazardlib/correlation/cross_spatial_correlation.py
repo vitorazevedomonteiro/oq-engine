@@ -437,6 +437,7 @@ class MarkhvidaEtAl2018CorrelationModel(BaseSpatialCrossCorrelationModel):
                 cov = get_nugget_cov(var_model, distance_matrix)
             else:
                 cov = get_isotropic_nested_cov(var_model, distance_matrix)
+            # Cholesky decomposition
             self.cache["corma"][:, :, i] = np.linalg.cholesky(cov)
         return
 
