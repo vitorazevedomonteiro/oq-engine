@@ -58,6 +58,7 @@ class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
         # lower triangular correlation matrix
         self.cache["corma"] = np.linalg.cholesky(
             self._get_correlation_matrix(sites, imts))
+        return self.cache["corma"]
 
     def apply_correlation(
             self, sites: SiteCollection, imts: List, residuals: np.ndarray):
