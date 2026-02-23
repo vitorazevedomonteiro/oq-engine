@@ -35,69 +35,40 @@ class LothBaker2013CorrelationMatrixTestCase(unittest.TestCase):
         cormo = LothBaker2013CorrelationModel()
         imts = [SA(period=0.1, damping=5), SA(period=1.0, damping=5)]
         corma = cormo.get_correlation_model(self.SITECOL, imts)
-        aaae(corma, [[1,          0.03823366, 1,          0.03823366],
-                     [0.03823366, 1,          0.03823366, 0.00146181],
-                     [1,          0.03823366, 1,          0.03823366],
-                     [0.03823366, 0.00146181, 0.03823366, 1]])
+        aaae(corma, [[1,    0.31737876, 1,  0.31737876, 0.2,    0.11200214, 0.2,    0.11200214],
+                     [0.31737876,   1,  0.31737876, 0.1726039,  0.11200214, 0.2, 0.11200214,    0.06139007],
+                     [1,    0.31737876, 1,  0.31737876, 0.2,    0.11200214, 0.2,    0.11200214],
+                     [0.31737876, 0.1726039,  0.31737876, 1,    0.11200214, 0.06139007, 0.11200214, 0.2],
+                     [0.2,  0.11200214, 0.2,    0.11200214, 1.01,   0.36029323, 1.01,   0.36029323],
+                     [0.11200214,   0.2,    0.11200214, 0.06139007, 0.36029323, 1.01,   0.36029323, 0.19680408],
+                     [0.2,  0.11200214, 0.2,    0.11200214, 1.01,   0.36029323, 1.01,   0.36029323],
+                     [0.11200214,   0.06139007, 0.11200214, 0.2,    0.36029323, 0.19680408, 0.36029323, 1.01]])
 
         imts = [SA(period=0.5, damping=5), SA(period=5.0, damping=5)]
         corma = cormo._get_correlation_matrix(self.SITECOL, imts)
-        aaae(corma, [[1,          0.26107857, 1,          0.26107857],
-                     [0.26107857, 1,          0.26107857, 0.06816202],
-                     [1,          0.26107857, 1,          0.26107857],
-                     [0.26107857, 0.06816202, 0.26107857, 1]])
+        aaae(corma, [[0.99,       0.31926514, 0.99,       0.31926514, 0.33,       0.13927548,    0.33,       0.13927548],
+                     [0.31926514, 0.99,       0.31926514, 0.17295974, 0.13927548, 0.33,   0.13927548, 0.0799556],
+                     [0.99,       0.31926514, 0.99,       0.31926514, 0.33,       0.13927548, 0.33,       0.13927548],
+                     [0.31926514, 0.17295974, 0.31926514, 0.99,       0.13927548, 0.0799556,  0.13927548, 0.33],
+                     [0.33,       0.13927548, 0.33,       0.13927548, 1,         0.38646643, 1,         0.38646643],
+                     [0.13927548, 0.33,       0.13927548, 0.0799556,  0.38646643, 1, 0.38646643, 0.20979378],
+                     [0.33,       0.13927548, 0.33,       0.13927548, 1,         0.38646643, 1,         0.38646643],
+                     [0.13927548, 0.0799556,  0.13927548, 0.33,       0.38646643, 0.20979378, 0.38646643, 1]])
 
-
-    def test_period_one_and_above(self):
-        cormo = LothBaker2013CorrelationModel()
-        cormo2 = LothBaker2013CorrelationModel(vs30_clustering=True)
-        imt = SA(period=1.0, damping=5)
-        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
-        aaae(corma, [[1,         0.2730787, 1,          0.2730787],
-                     [0.2730787, 1,          0.2730787, 0.07457198],
-                     [1,         0.2730787, 1,          0.2730787],
-                     [0.2730787, 0.07457198, 0.2730787, 1]])
-        corma2 = cormo2._get_correlation_matrix(self.SITECOL, imt)
-        self.assertTrue((corma == corma2).all())
-
-        imt = SA(period=10.0, damping=5)
-        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
-        aaae(corma, [[1,          0.56813402, 1,          0.56813402],
-                     [0.56813402, 1,          0.56813402, 0.32277627],
-                     [1,          0.56813402, 1,          0.56813402],
-                     [0.56813402, 0.32277627, 0.56813402, 1]])
-        corma2 = cormo2._get_correlation_matrix(self.SITECOL, imt)
-        self.assertTrue((corma == corma2).all())
-
-    def test_pga(self):
-        sa = SA(period=1e-50, damping=5)
-        pga = PGA()
-
-        cormo = JB2009CorrelationModel(vs30_clustering=False)
-        corma = cormo._get_correlation_matrix(self.SITECOL, sa)
-        corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
-        self.assertTrue((corma == corma2).all())
-
-        cormo = JB2009CorrelationModel(vs30_clustering=True)
-        corma = cormo._get_correlation_matrix(self.SITECOL, sa)
-        corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
-        self.assertTrue((corma == corma2).all())
-
-
-class JB2009LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
+class LothBaker2013LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
 
     def test(self):
-        cormo = JB2009CorrelationModel(vs30_clustering=False)
+        cormo = LothBaker2013CorrelationModel(vs30_clustering=False)
         lt = cormo.get_lower_triangle_correlation_matrix(self.SITECOL, PGA())
         aaae(lt, [[1.0,            0.0,            0.0],
                   [1.97514806e-02, 9.99804920e-01, 0.0],
                   [1.97514806e-02, 5.42206860e-20, 9.99804920e-01]])
 
 
-class JB2009ApplyCorrelationTestCase(unittest.TestCase):
+class LothBaker2013ApplyCorrelationTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
