@@ -19,7 +19,7 @@ import numpy
 
 from openquake.hazardlib.imt import SA, PGA
 from openquake.hazardlib.correlation.cross_spatial_correlation import (
-    LothBaker2013CorrelationModel)
+    LothBaker2013CorrelationModel, MarkhvidaEtAl2018CorrelationModel)
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
 
@@ -158,3 +158,58 @@ class LothBaker2013ApplyCorrelationTestCase(unittest.TestCase):
             decimal=6
         )
              
+class  MarkhvidaEtAl2018LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        cormo = MarkhvidaEtAl2018CorrelationModel(num_pcs=5)
+        imts = [SA(period=0.5, damping=5), SA(period=3.0, damping=5)]
+        cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
+        lt = cormo.cache["corma"]
+        aaae(lt, [
+                    [[3.81103035, 2.17625169, 1.12381154, 0.79465476, 0.57516197],
+                     [0, 0, 0, 0, 0],
+                     [0, 0, 0, 0, 0]],
+                    [[1.7735324,  1.04485274, 0.52152147, 0.23627793, 0],
+                     [3.37320844, 1.90901916, 0.99547363, 0.75871532, 0.57516197],
+                     [0, 0, 0, 0, 0]],
+                    [[1.7735324, 1.04485274, 0.52152147, 0.23627793, 0],
+                     [0.70395373, 0.37376553, 0.17093491, 0.10581377, 0],
+                     [3.29893685, 1.87207198, 0.98068802, 0.75130046, 0.57516197]]
+                 ]
+            )
+        
+class MarkhvidaEtAl2018ApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        numpy.random.seed(13)
+        cormo = MarkhvidaEtAl2018CorrelationModel(num_pcs=5)
+        
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(period=0.5, damping=5), SA(period=5.0, damping=5)]
+        num_sites = len(self.SITECOL)
+        num_imts = len(imts)
+        num_realizations = 100000
+        
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+        
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+        
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.002)
+        self.assertAlmostEqual(std, 1, delta=0.06)
