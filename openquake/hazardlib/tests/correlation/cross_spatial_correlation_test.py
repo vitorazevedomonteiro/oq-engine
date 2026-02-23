@@ -13,12 +13,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import unittest
 
+import unittest
 import numpy
 
 from openquake.hazardlib.imt import SA, PGA
-from openquake.hazardlib.correlation.cross_spatial_correlation import LothBaker2013CorrelationModel
+from openquake.hazardlib.correlation.cross_spatial_correlation import (
+    LothBaker2013CorrelationModel)
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
 
@@ -35,25 +36,42 @@ class LothBaker2013CorrelationMatrixTestCase(unittest.TestCase):
         cormo = LothBaker2013CorrelationModel()
         imts = [SA(period=0.1, damping=5), SA(period=1.0, damping=5)]
         corma = cormo.get_correlation_model(self.SITECOL, imts)
-        aaae(corma, [[1,    0.31737876, 1,  0.31737876, 0.2,    0.11200214, 0.2,    0.11200214],
-                     [0.31737876,   1,  0.31737876, 0.1726039,  0.11200214, 0.2, 0.11200214,    0.06139007],
-                     [1,    0.31737876, 1,  0.31737876, 0.2,    0.11200214, 0.2,    0.11200214],
-                     [0.31737876, 0.1726039,  0.31737876, 1,    0.11200214, 0.06139007, 0.11200214, 0.2],
-                     [0.2,  0.11200214, 0.2,    0.11200214, 1.01,   0.36029323, 1.01,   0.36029323],
-                     [0.11200214,   0.2,    0.11200214, 0.06139007, 0.36029323, 1.01,   0.36029323, 0.19680408],
-                     [0.2,  0.11200214, 0.2,    0.11200214, 1.01,   0.36029323, 1.01,   0.36029323],
-                     [0.11200214,   0.06139007, 0.11200214, 0.2,    0.36029323, 0.19680408, 0.36029323, 1.01]])
+        aaae(corma, [[1,    0.31737876, 1,  0.31737876, 0.2,    0.11200214,
+                      0.2,    0.11200214],
+                     [0.31737876,   1,  0.31737876, 0.1726039,
+                         0.11200214, 0.2, 0.11200214,    0.06139007],
+                     [1,    0.31737876, 1,  0.31737876, 0.2,
+                         0.11200214, 0.2,    0.11200214],
+                     [0.31737876, 0.1726039,  0.31737876, 1,
+                         0.11200214, 0.06139007, 0.11200214, 0.2],
+                     [0.2,  0.11200214, 0.2,    0.11200214,
+                         1.01,   0.36029323, 1.01,   0.36029323],
+                     [0.11200214,   0.2,    0.11200214, 0.06139007,
+                         0.36029323, 1.01,   0.36029323, 0.19680408],
+                     [0.2,  0.11200214, 0.2,    0.11200214,
+                         1.01,   0.36029323, 1.01,   0.36029323],
+                     [0.11200214,   0.06139007, 0.11200214, 0.2,    0.36029323,
+                      0.19680408, 0.36029323, 1.01]])
 
         imts = [SA(period=0.5, damping=5), SA(period=5.0, damping=5)]
         corma = cormo._get_correlation_matrix(self.SITECOL, imts)
-        aaae(corma, [[0.99,       0.31926514, 0.99,       0.31926514, 0.33,       0.13927548,    0.33,       0.13927548],
-                     [0.31926514, 0.99,       0.31926514, 0.17295974, 0.13927548, 0.33,   0.13927548, 0.0799556],
-                     [0.99,       0.31926514, 0.99,       0.31926514, 0.33,       0.13927548, 0.33,       0.13927548],
-                     [0.31926514, 0.17295974, 0.31926514, 0.99,       0.13927548, 0.0799556,  0.13927548, 0.33],
-                     [0.33,       0.13927548, 0.33,       0.13927548, 1,         0.38646643, 1,         0.38646643],
-                     [0.13927548, 0.33,       0.13927548, 0.0799556,  0.38646643, 1, 0.38646643, 0.20979378],
-                     [0.33,       0.13927548, 0.33,       0.13927548, 1,         0.38646643, 1,         0.38646643],
-                     [0.13927548, 0.0799556,  0.13927548, 0.33,       0.38646643, 0.20979378, 0.38646643, 1]])
+        aaae(corma, [[0.99,       0.31926514, 0.99,       0.31926514, 0.33,
+                      0.13927548,    0.33,       0.13927548],
+                     [0.31926514, 0.99,       0.31926514, 0.17295974,
+                         0.13927548, 0.33,   0.13927548, 0.0799556],
+                     [0.99,       0.31926514, 0.99,       0.31926514,
+                         0.33,       0.13927548, 0.33,       0.13927548],
+                     [0.31926514, 0.17295974, 0.31926514, 0.99,
+                         0.13927548, 0.0799556,  0.13927548, 0.33],
+                     [0.33,       0.13927548, 0.33,       0.13927548,
+                         1,         0.38646643, 1,         0.38646643],
+                     [0.13927548, 0.33,       0.13927548, 0.0799556,
+                         0.38646643, 1, 0.38646643, 0.20979378],
+                     [0.33,       0.13927548, 0.33,       0.13927548,
+                         1,         0.38646643, 1,         0.38646643],
+                     [0.13927548, 0.0799556,  0.13927548, 0.33,
+                      0.38646643, 0.20979378, 0.38646643, 1]])
+
 
 class LothBaker2013LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
@@ -75,7 +93,7 @@ class LothBaker2013ApplyCorrelationTestCase(unittest.TestCase):
 
     def test(self):
         numpy.random.seed(13)
-        cormo = JB2009CorrelationModel(vs30_clustering=False)
+        cormo = LothBaker2013CorrelationModel(vs30_clustering=False)
         intra_residuals_sampled = numpy.random.normal(size=(3, 100000))
         intra_residuals_correlated = cormo.apply_correlation(
             self.SITECOL, PGA(), intra_residuals_sampled
@@ -93,7 +111,7 @@ class LothBaker2013ApplyCorrelationTestCase(unittest.TestCase):
     def test_filtered_sitecol(self):
         filtered = self.SITECOL.filtered([0, 2])
         numpy.random.seed(13)
-        cormo = JB2009CorrelationModel(vs30_clustering=False)
+        cormo = LothBaker2013CorrelationModel(vs30_clustering=False)
         intra_residuals_sampled = numpy.random.normal(size=(2, 5))
         intra_residuals_correlated = cormo.apply_correlation(
             filtered, PGA(), intra_residuals_sampled)

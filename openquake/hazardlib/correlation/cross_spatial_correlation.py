@@ -23,11 +23,10 @@ from scipy.interpolate import RectBivariateSpline
 from abc import abstractmethod
 from typing import Dict, List, Optional
 
-from openquake.hazardlib.imt import IMT
 from openquake.hazardlib.site import SiteCollection
 from openquake.hazardlib.gsim.base import CoeffsTable
 from openquake.hazardlib.correlation.spatial_correlation import \
-        BaseCorrelationModel
+    BaseCorrelationModel
 
 
 class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
@@ -39,7 +38,6 @@ class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
     def __init__(self, **kwargs):
         super().__init__()
         self.cache = {"corma": None}
-
 
     def _get_correlation_matrix(self, sites: SiteCollection, imts: List):
         """
@@ -400,8 +398,8 @@ class MarkhvidaEtAl2018CorrelationModel(BaseSpatialCrossCorrelationModel):
         super().__init__(**kwargs)
         self.npcs = int(kwargs.get("num_pcs", 5))
         assert (self.npcs >= 5) and (self.npcs <= 19), (
-           "Number of principal components must be between 5 and 19 "
-           f"({self.npcs} given)"
+            "Number of principal components must be between 5 and 19 "
+            f"({self.npcs} given)"
         )
 
     def __repr__(self):

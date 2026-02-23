@@ -13,14 +13,16 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import unittest
 
+import unittest
 import numpy
 
 from openquake.hazardlib.imt import SA, PGA
-from openquake.hazardlib.correlation.spatial_correlation import JB2009CorrelationModel, \
-                                            HM2018CorrelationModel, \
-                                            EI2012CorrelationModel
+from openquake.hazardlib.correlation.spatial_correlation import (
+    JB2009CorrelationModel,
+    HM2018CorrelationModel,
+    EI2012CorrelationModel
+)
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
 
@@ -235,15 +237,15 @@ class HM2018CorrelationMatrixTestCase(unittest.TestCase):
         MEANcorMa = corma_3d.mean(2)
         COVcorma = numpy.divide(corma_3d.std(2), MEANcorMa)
 
-        aaae(MEANcorMa,[[1.0000000,    0.3766436,    1.0000000,    0.3766436,],
-                     [0.3766436,    1.0000000,    0.3766436,    0.2534904,],
-                     [1.0000000,    0.3766436,    1.0000000,    0.3766436,],
-                     [0.3766436,    0.2534904,    0.3766436,    1.00000,]], 2)
+        aaae(MEANcorMa, [[1.0000000, 0.3766436, 1.0000000, 0.3766436,],
+                         [0.3766436, 1.0000000, 0.3766436, 0.2534904,],
+                         [1.0000000, 0.3766436, 1.0000000, 0.3766436,],
+                         [0.3766436, 0.2534904, 0.3766436, 1.00000,]], 2)
 
-        aaae(COVcorma,[[0.0000000,    0.4102512,    0.0000000,    0.4102512,],
-                     [0.4102512,    0.0000000,    0.4102512,    0.5636907,],
-                     [0.0000000,    0.4102512,    0.0000000,    0.4102512,],
-                     [0.4102512,    0.5636907,    0.4102512,    0.00000,]], 2)
+        aaae(COVcorma, [[0.0000000, 0.4102512, 0.0000000, 0.4102512,],
+                        [0.4102512, 0.0000000, 0.4102512, 0.5636907,],
+                        [0.0000000, 0.4102512, 0.0000000, 0.4102512,],
+                        [0.4102512, 0.5636907, 0.4102512, 0.00000,]], 2)
 
 
 class HM2018ApplyCorrelationTestCase(unittest.TestCase):
@@ -296,11 +298,11 @@ class HM2018ApplyCorrelationTestCase(unittest.TestCase):
         aaae(numpy.squeeze(numpy.asarray(mean)), numpy.zeros(3), 2)
         aaae(numpy.squeeze(numpy.asarray(std)), stddev_intra, 2)
         aaae(inferred_corrcoef,
-             [[1.        , 0.3807, 0.5066],
-              [0.3807, 1.        , 0.3075],
-              [0.5066, 0.3075, 1.        ]], 2)
-        
-        
+             [[1., 0.3807, 0.5066],
+              [0.3807, 1., 0.3075],
+              [0.5066, 0.3075, 1.]], 2)
+
+
 class EI2012CorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
@@ -315,7 +317,6 @@ class EI2012CorrelationMatrixTestCase(unittest.TestCase):
                      [0.07638476, 1,         0.07638476, 0.00583463],
                      [1,         0.07638476, 1,         0.07638476],
                      [0.07638476, 0.00583463, 0.07638476, 1]])
-        
 
         imt = SA(period=0.95, damping=5)
         corma = cormo._get_correlation_matrix(self.SITECOL, imt)
@@ -323,7 +324,6 @@ class EI2012CorrelationMatrixTestCase(unittest.TestCase):
                      [0.24569092, 1,         0.24569092, 0.06036403],
                      [1,         0.24569092, 1,         0.24569092],
                      [0.24569092, 0.06036403, 0.24569092, 1]])
-
 
     def test_itaka_database(self):
         cormo = EI2012CorrelationModel(database=2)
@@ -340,8 +340,6 @@ class EI2012CorrelationMatrixTestCase(unittest.TestCase):
                      [0.09861213, 1,         0.09861213, 0.00972435],
                      [1,         0.09861213, 1,         0.09861213],
                      [0.09861213, 0.00972435, 0.09861213, 1]])
-        
-
 
     def test_period_one_and_above(self):
         cormo = EI2012CorrelationModel(database=1)
@@ -352,8 +350,7 @@ class EI2012CorrelationMatrixTestCase(unittest.TestCase):
                      [0.25483201, 1,         0.25483201, 0.06493935],
                      [1,         0.25483201, 1,         0.25483201],
                      [0.25483201, 0.06493935, 0.25483201, 1]])
-        corma2 = cormo2._get_correlation_matrix(self.SITECOL, imt)
-        
+        cormo2._get_correlation_matrix(self.SITECOL, imt)
 
         imt = SA(period=2.0, damping=5)
         corma = cormo._get_correlation_matrix(self.SITECOL, imt)
@@ -361,8 +358,7 @@ class EI2012CorrelationMatrixTestCase(unittest.TestCase):
                      [0.40691525, 1,         0.40691525, 0.16558002],
                      [1,         0.40691525, 1,         0.40691525],
                      [0.40691525, 0.16558002, 0.40691525, 1]])
-        corma2 = cormo2._get_correlation_matrix(self.SITECOL, imt)
-        
+        cormo2._get_correlation_matrix(self.SITECOL, imt)
 
 
 class EI2012LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
@@ -408,6 +404,6 @@ class EI2012ApplyCorrelationTestCase(unittest.TestCase):
         intra_residuals_correlated = cormo.apply_correlation(
             filtered, SA(0.5), intra_residuals_sampled)
         aaae(intra_residuals_correlated,
-             [[-0.71239066,  0.75376638, -0.04450308,  0.45181234,  1.34510171],
-              [ 0.41346528,  1.4520726,   0.8434472,   1.53139799, -0.82042512]],
+             [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
+              [0.41346528, 1.4520726, 0.8434472, 1.53139799, -0.82042512]],
              decimal=6)
