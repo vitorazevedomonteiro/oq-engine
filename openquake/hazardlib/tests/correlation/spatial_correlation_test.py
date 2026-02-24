@@ -17,11 +17,12 @@
 import unittest
 import numpy
 
-from openquake.hazardlib.imt import SA, PGA
+from openquake.hazardlib.imt import SA, PGA, PGV
 from openquake.hazardlib.correlation.spatial_correlation import (
     JB2009CorrelationModel,
     HM2018CorrelationModel,
-    EI2012CorrelationModel
+    EI2012CorrelationModel,
+    EI2011CorrelationModel,
 )
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
@@ -406,4 +407,98 @@ class EI2012ApplyCorrelationTestCase(unittest.TestCase):
         aaae(intra_residuals_correlated,
              [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
               [0.41346528, 1.4520726, 0.8434472, 1.53139799, -0.82042512]],
+             decimal=6)
+
+
+
+
+class EI2011CorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test_esm_database(self):
+        cormo = EI2011CorrelationModel(database=1)
+        imt = PGA()
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.08450045, 1, 0.08450045],
+                     [0.08450045, 1, 0.08450045, 0.00714033],
+                     [1, 0.08450045, 1, 0.08450045],
+                     [0.08450045, 0.00714033, 0.08450045, 1]])
+
+        imt = PGV()
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.21191774, 1, .21191774],
+                     [0.21191774, 1, 0.21191774, 0.04490913],
+                     [1, 0.21191774, 1, 0.21191774],
+                     [0.21191774, 0.04490913, 0.21191774, 1]])
+
+    def test_itaka_database(self):
+        cormo = EI2011CorrelationModel(database=2)
+        imt = PGA()
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.05498267, 1, 0.05498267],
+                     [0.05498267, 1, 0.05498267, 0.00302309],
+                     [1, 0.05498267, 1, 0.05498267],
+                     [0.05498267, 0.00302309, 0.05498267, 1]])
+
+        imt = PGV()
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.10020024, 1, 0.10020024],
+                     [0.10020024, 1, 0.10020024, 0.01004009],
+                     [1, 0.10020024, 1, 0.10020024],
+                     [0.10020024, 0.01004009, 0.10020024, 1]])
+
+class EI2011LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        cormo = EI2011CorrelationModel(database=1)
+        lt = cormo.get_lower_triangle_correlation_matrix(self.SITECOL, PGA())
+        aaae(lt, [[1.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+                  [8.45004542e-02, 9.96423441e-01, 0.00000000e+00],
+                  [8.45004542e-02, 2.32060495e-17, 9.96423441e-01]])
+
+        cormo2 = EI2011CorrelationModel(database=2)
+        lt = cormo2.get_lower_triangle_correlation_matrix(self.SITECOL, PGA())
+        aaae(lt, [[1.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+                  [5.49826710e-02, 9.98487309e-01, 0.00000000e+00],
+                  [5.49826710e-02, -2.85792901e-17, 9.98487309e-01]])
+
+
+class EI2011ApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        numpy.random.seed(13)
+        cormo = EI2011CorrelationModel(database=1)
+        intra_residuals_sampled = numpy.random.normal(size=(3, 100000))
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, PGA(), intra_residuals_sampled
+        )
+        inferred_corrcoef = numpy.corrcoef(intra_residuals_correlated)
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.002)
+        self.assertAlmostEqual(std, 1, delta=0.002)
+
+        actual_corrcoef = cormo._get_correlation_matrix(self.SITECOL, PGA())
+        numpy.testing.assert_almost_equal(inferred_corrcoef, actual_corrcoef,
+                                          decimal=2)
+
+    def test_filtered_sitecol(self):
+        filtered = self.SITECOL.filtered([0, 2])
+        numpy.random.seed(13)
+        cormo = EI2011CorrelationModel(database=1)
+        intra_residuals_sampled = numpy.random.normal(size=(2, 5))
+        intra_residuals_correlated = cormo.apply_correlation(
+            filtered, PGA(), intra_residuals_sampled)
+        aaae(intra_residuals_correlated,
+             [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
+              [ 0.47023662, 1.40905247, 0.85437067, 1.51157548, -0.92797657]],
              decimal=6)
