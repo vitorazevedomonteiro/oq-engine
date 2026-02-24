@@ -23,6 +23,7 @@ from openquake.hazardlib.correlation.spatial_correlation import (
     HM2018CorrelationModel,
     EI2012CorrelationModel,
     EI2011CorrelationModel,
+    AHP2022CorrelationModel,
 )
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
@@ -500,5 +501,92 @@ class EI2011ApplyCorrelationTestCase(unittest.TestCase):
             filtered, PGA(), intra_residuals_sampled)
         aaae(intra_residuals_correlated,
              [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
-              [ 0.47023662, 1.40905247, 0.85437067, 1.51157548, -0.92797657]],
+              [0.47023662, 1.40905247, 0.85437067, 1.51157548, -0.92797657]],
+             decimal=6)
+
+
+
+
+
+class AHP2022CorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        cormo = AHP2022CorrelationModel()
+        imt = SA(period=0.1, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.39669678, 1, 0.39669678],
+                     [0.39669678, 1, 0.39669678, 0.24864585],
+                     [1, 0.39669678, 1, 0.39669678],
+                     [0.39669678, 0.24864585, 0.39669678, 1]])
+
+        imt = SA(period=0.95, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.39326062, 1, 0.39326062],
+                     [0.39326062, 1, 0.39326062, 0.24541103],
+                     [1, 0.39326062, 1, 0.39326062],
+                     [0.39326062, 0.24541103, 0.39326062, 1]])
+
+    def test_pga(self):
+        sa = SA(period=1e-50, damping=5)
+        pga = PGA()
+
+        cormo = AHP2022CorrelationModel()
+        corma = cormo._get_correlation_matrix(self.SITECOL, sa)
+        corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
+        self.assertTrue((corma == corma2).all())
+
+        corma = cormo._get_correlation_matrix(self.SITECOL, sa)
+        corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
+        self.assertTrue((corma == corma2).all())
+
+
+class AHP2022LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        cormo = AHP2022CorrelationModel()
+        lt = cormo.get_lower_triangle_correlation_matrix(self.SITECOL, SA(1.0))
+        aaae(lt, [[1, 0, 0],
+                  [0.39326062, 0.91942704, 0],
+                  [0.39326062, 0.09871051, 0.91411286]])
+
+
+class AHP2022ApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        numpy.random.seed(13)
+        cormo = AHP2022CorrelationModel()
+        intra_residuals_sampled = numpy.random.normal(size=(3, 100000))
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, SA(1.0), intra_residuals_sampled
+        )
+        inferred_corrcoef = numpy.corrcoef(intra_residuals_correlated)
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.002)
+        self.assertAlmostEqual(std, 1, delta=0.002)
+
+        actual_corrcoef = cormo._get_correlation_matrix(self.SITECOL, SA(1.0))
+        numpy.testing.assert_almost_equal(inferred_corrcoef, actual_corrcoef,
+                                          decimal=2)
+
+    def test_filtered_sitecol(self):
+        filtered = self.SITECOL.filtered([0, 2])
+        numpy.random.seed(13)
+        cormo = AHP2022CorrelationModel()
+        intra_residuals_sampled = numpy.random.normal(size=(2, 5))
+        intra_residuals_correlated = cormo.apply_correlation(
+            filtered, SA(1.0), intra_residuals_sampled)
+        aaae(intra_residuals_correlated,
+                [[-0.71239066, 0.75376638, -0.04450308,  0.45181234, 1.34510171],
+                 [ 0.20646171, 1.53065076, 0.76974308, 1.52936565, -0.42661714]],
              decimal=6)
