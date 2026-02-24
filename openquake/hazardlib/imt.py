@@ -95,6 +95,10 @@ def from_string(imt, _damping=5.0):
             im = DRVT(float(m.group(2)))
         elif m.group(1) == 'AvgSA':
             im = AvgSA(float(m.group(2)))
+        elif m.group(1) == 'Sa_avg2':
+            im = Sa_avg2(float(m.group(2)))
+        elif m.group(1) == 'Sa_avg3':
+            im = Sa_avg3(float(m.group(2)))
         return im
     elif re.match(r'^SDi\((\d+\.?\d*),(\d+\.?\d*)\)$', imt):
         m = re.match(r'^SDi\((\d+\.?\d*),(\d+\.?\d*)\)$', imt)
