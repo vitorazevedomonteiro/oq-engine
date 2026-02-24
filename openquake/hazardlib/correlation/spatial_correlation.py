@@ -656,7 +656,7 @@ def s2010correlation(sites_or_distances, imt):
     else:
         distances = sites_or_distances
 
-    if imt == 'PGA':
+    if imt.string == 'PGA':
         a = -0.586
         b = 0.306
         rho = numpy.exp(a*(distances**b))
