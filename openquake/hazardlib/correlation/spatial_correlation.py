@@ -496,3 +496,96 @@ def ahp2022correlation(sites_or_distances, imt):
     rho = numpy.exp(-(distances/b) ** 0.59)
 
     return rho
+
+class S2022CorrelationModel(BaseCorrelationModel):
+    """
+    Compute spatial correlation coefficients for Sa(T) and PGA for
+    different regions in Italy for periods between [0.0-2.0]s.
+
+    For more details please see: 
+    Schiappapietra, E., Stripajová, S., Pažák, P., Douglas, J., & Trendafiloski, G. (2022).
+    Exploring the impact of spatial correlations of earthquake ground motions in
+    the catastrophe modelling process: a case study for Italy.
+    Bulletin of Earthquake Engineering, 20(11), 5747–5773. https://doi.org/10.1007/s10518-022-01413-z
+    
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type (PGA or SA)
+    """
+    
+    def __init__(self, region):
+        self.region = region
+        self.cache = {}  # imt -> correlation model
+
+    def _get_correlation_matrix(self, sites, imt):
+        return s2022correlation(sites, imt, self.region)
+
+    def get_lower_triangle_correlation_matrix(self, sites, imt):
+        """
+        Get lower-triangle matrix as a result of Cholesky-decomposition
+        of correlation matrix.
+
+        The resulting matrix should have zeros on values above
+        the main diagonal.
+
+        The actual implementations of :class:`BaseCorrelationModel` interface
+        might calculate the matrix considering site collection and IMT (like
+        :class:`S2022CorrelationModel` does) or might have it pre-constructed
+        for a specific site collection and IMT, in which case they will need
+        to make sure that parameters to this function match parameters that
+        were used to pre-calculate decomposed correlation matrix.
+
+        :param sites:
+            :class:`~openquake.hazardlib.site.SiteCollection` to create
+            correlation matrix for.
+        :param imt:
+            Intensity measure type object, see :mod:`openquake.hazardlib.imt`.
+        """
+        return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
+
+def s2022correlation(sites_or_distances, imt, region=1):
+    """
+    Returns the Schiappapietra et al., 2022 correlation model.
+
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type (PGA or SA)
+    :param region:
+        Database used for the spatial correlation:
+            - North Italy   - 1
+            - Central Italy - 2
+            - South Italy   - 3
+    """
+    
+    if hasattr(sites_or_distances, 'mesh'):
+        distances = sites_or_distances.mesh.get_distance_matrix()
+    else:
+        distances = sites_or_distances
+
+    period = imt.period
+
+    if not (0 <= period <= 2.0):
+        raise ValueError(f"T = {period} is outside the valid range [0, 2.0].")
+    
+    if region == 1:
+        if period <= 0.55:
+            b = 27.48 - 52.20 * (period-0.55)
+        else:
+            b = 27.48 + 15.81 * (period-0.55)
+        
+        return numpy.exp(-(3*distances)/b)
+    
+    elif region == 2:
+        if period <= 1.0:
+            b = 17.87 - 8.52 * (period-1.0)
+        else:
+            b = 17.87 + 7.85 * (period-1.0)
+        
+        return numpy.exp(-(3*distances)/b)
+
+    elif region == 3:
+        b = 23.25 - 5.44 * period
+    
+        return numpy.exp(-(3*distances)/b)
