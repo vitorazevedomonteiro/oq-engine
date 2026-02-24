@@ -743,7 +743,7 @@ def sw2013correlation(sites_or_distances, imt):
     
 
     
-class DW013CorrelationModel(BaseCorrelationModel):
+class DW2013CorrelationModel(BaseCorrelationModel):
     """
     Compute spatial correlation coefficients for Sa(T) and PGA 
     for NGA-W1 database database for periods between [0.2-5.0]s.
