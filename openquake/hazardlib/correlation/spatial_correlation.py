@@ -819,7 +819,7 @@ def dw2013correlation(sites_or_distances, imt, beta_vs30):
     interps = [interp1d(periods, params[:, i], kind='linear', fill_value='extrapolate') 
             for i in range(2)]
 
-    if imt == 'PGA':
+    if imt.string == 'PGA':
         beta = 7.45 * numpy.exp(0.07 * beta_vs30)
         rho = numpy.exp((-3 * distances) / beta)
         return rho
