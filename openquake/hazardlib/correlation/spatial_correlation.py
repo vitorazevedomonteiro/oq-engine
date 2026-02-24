@@ -737,3 +737,97 @@ def sw2013correlation(sites_or_distances, imt):
         return rho
     else:
         raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
+    
+
+    
+class DW013CorrelationModel(BaseCorrelationModel):
+    """
+    Compute spatial correlation coefficients for Sa(T) and PGA 
+    for NGA-W1 database database for periods between [0.2-5.0]s.
+
+    For more details please see: 
+    Du, W., & Wang, G. (2013). 
+    Intra-Event Spatial Correlations for Cumulative Absolute Velocity, Arias Intensity, 
+    and Spectral Accelerations Based on Regional Site Conditions. Bulletin of the Seismological 
+    Society of America, 103(2A), 1117–1129. https://doi.org/10.1785/0120120185
+    
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type: SA(T) and PGA
+    """
+    
+    def __init__(self):
+        self.cache = {}  # imt -> correlation model
+
+    def _get_correlation_matrix(self, sites, imt):
+        return dw2013correlation(sites, imt)
+
+    def get_lower_triangle_correlation_matrix(self, sites, imt):
+        """
+        Get lower-triangle matrix as a result of Cholesky-decomposition
+        of correlation matrix.
+
+        The resulting matrix should have zeros on values above
+        the main diagonal.
+
+        The actual implementations of :class:`BaseCorrelationModel` interface
+        might calculate the matrix considering site collection and IMT (like
+        :class:`DW013CorrelationModel` does) or might have it pre-constructed
+        for a specific site collection and IMT, in which case they will need
+        to make sure that parameters to this function match parameters that
+        were used to pre-calculate decomposed correlation matrix.
+
+        :param sites:
+            :class:`~openquake.hazardlib.site.SiteCollection` to create
+            correlation matrix for.
+        :param imt:
+            Intensity measure type object, see :mod:`openquake.hazardlib.imt`.
+        """
+        return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
+
+periods = numpy.array([0.2, 0.5, 1.0, 2.0, 5.0])
+params = numpy.array([
+    [4.4, 1.1],
+    [8.5, 1.1],
+    [22.8, 0.8],
+    [32.3, 0.5],
+    [41.4, 0.4],
+])
+
+def dw2013correlation(sites_or_distances, imt, beta_vs30):
+    """
+    Returns the Du, W., & Wang, G. (2013) correlation model.
+
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type: PGA
+    """
+    
+    if hasattr(sites_or_distances, 'mesh'):
+        distances = sites_or_distances.mesh.get_distance_matrix()
+    else:
+        distances = sites_or_distances
+    
+    period = imt.period
+
+    # Interpolate the parameters
+    interps = [interp1d(periods, params[:, i], kind='linear', fill_value='extrapolate') 
+            for i in range(2)]
+
+    if imt == 'PGA':
+        beta = 7.45 * numpy.exp(0.07 * beta_vs30)
+        rho = numpy.exp((-3 * distances) / beta)
+        return rho
+    
+    else:
+        if not (0.2 <= period <= 5.0):
+            raise ValueError(f"Period = {period} is outside the valid range [0.2, 5.0].")
+        
+        c1, c2 =[f(period) for f in interps]
+
+        beta = c1 + c2 * beta_vs30
+        rho = numpy.exp((-3 * distances) / beta)
+        return rho
+    
