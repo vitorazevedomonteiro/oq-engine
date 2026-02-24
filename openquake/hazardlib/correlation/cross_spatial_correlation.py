@@ -495,7 +495,7 @@ class MarkhvidaEtAl2018CorrelationModel(BaseSpatialCrossCorrelationModel):
 
 
 
-class MonteiroEtAlGlobalCorrelationModel(BaseSpatialCrossCorrelationModel):
+class MonteiroEtAlGlobal2026CorrelationModel(BaseSpatialCrossCorrelationModel):
     """
     Implements the spatial cross-correlation model (global model) of Monteiro V.A., (2026) based on
     principal component analysis and geostatistics.
