@@ -660,3 +660,80 @@ def s2010correlation(sites_or_distances, imt):
         return rho
     else:
         raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
+    
+
+class SW2013CorrelationModel(BaseCorrelationModel):
+    """
+    Compute spatial correlation coefficients for PGA and PGV
+    for Japanese earthquakes.
+
+    For more details please see: 
+    Sokolov, V., & Wenzel, F. (2013). 
+    Further analysis of the influence of site conditions and earthquake 
+    magnitude on ground-motion within-earthquake correlation: analysis of 
+    PGA and PGV data from the K-NET and the KiK-net (Japan) networks. 
+    Bulletin of Earthquake Engineering, 11(6), 1909–1926. https://doi.org/10.1007/s10518-013-9493-9
+
+    
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type: PGA
+    """
+    
+    def __init__(self):
+        self.cache = {}  # imt -> correlation model
+
+    def _get_correlation_matrix(self, sites, imt):
+        return sw2013correlation(sites, imt)
+
+    def get_lower_triangle_correlation_matrix(self, sites, imt):
+        """
+        Get lower-triangle matrix as a result of Cholesky-decomposition
+        of correlation matrix.
+
+        The resulting matrix should have zeros on values above
+        the main diagonal.
+
+        The actual implementations of :class:`BaseCorrelationModel` interface
+        might calculate the matrix considering site collection and IMT (like
+        :class:`Sw2013CorrelationModel` does) or might have it pre-constructed
+        for a specific site collection and IMT, in which case they will need
+        to make sure that parameters to this function match parameters that
+        were used to pre-calculate decomposed correlation matrix.
+
+        :param sites:
+            :class:`~openquake.hazardlib.site.SiteCollection` to create
+            correlation matrix for.
+        :param imt:
+            Intensity measure type object, see :mod:`openquake.hazardlib.imt`.
+        """
+        return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
+
+def sw2013correlation(sites_or_distances, imt):
+    """
+    Returns the Sokolov, V., & Wenzel, F. (2013) correlation model.
+
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type: PGA and PGV
+    """
+    
+    if hasattr(sites_or_distances, 'mesh'):
+        distances = sites_or_distances.mesh.get_distance_matrix()
+    else:
+        distances = sites_or_distances
+
+    if imt == 'PGA':
+        b = 0.7156
+        a = -0.0856
+        rho = numpy.exp(a*(distances**b))
+        return rho
+    elif imt == 'PGV':
+        b = 0.784
+        a = -0.0837
+        rho = numpy.exp(a*(distances**b))
+        return rho
+    else:
+        raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
