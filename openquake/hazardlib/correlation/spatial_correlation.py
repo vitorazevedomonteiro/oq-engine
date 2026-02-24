@@ -764,8 +764,8 @@ class DW2013CorrelationModel(BaseCorrelationModel):
         self.cache = {}  # imt -> correlation model
         self.beta_vs30 = beta_vs30
 
-    def _get_correlation_matrix(self, sites, imt, beta_vs30):
-        return dw2013correlation(sites, imt, beta_vs30)
+    def _get_correlation_matrix(self, sites, imt):
+        return dw2013correlation(sites, imt, self.beta_vs30)
 
     def get_lower_triangle_correlation_matrix(self, sites, imt):
         """
