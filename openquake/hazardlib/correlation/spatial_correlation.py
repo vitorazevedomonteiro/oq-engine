@@ -417,3 +417,82 @@ def ei2011correlation(sites_or_distances, imt, database=1):
             b = 14.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
+
+class AHP2022CorrelationModel(BaseCorrelationModel):
+    """
+    Compute spatial correlation coefficients for Sa(T) and PGA for
+    Chilean earthquakes for periods between [0.0-10.0]s.
+    
+    "Aldea, S., Heresi, P., & Pastén, C. (2022). 
+    Within‐event spatial correlation of peak ground acceleration and spectral 
+    pseudo‐acceleration ordinates in the Chilean subduction zone. 
+    Earthquake Engineering & Structural Dynamics, 51(11), 2575–2590.
+    https://doi.org/10.1002/eqe.3674
+    
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type (PGA or SA)
+    """
+    
+    def __init__(self):
+        self.cache = {}  # imt -> correlation model
+
+    def _get_correlation_matrix(self, sites, imt):
+        return ahp2022correlation(sites, imt)
+
+    def get_lower_triangle_correlation_matrix(self, sites, imt):
+        """
+        Get lower-triangle matrix as a result of Cholesky-decomposition
+        of correlation matrix.
+
+        The resulting matrix should have zeros on values above
+        the main diagonal.
+
+        The actual implementations of :class:`BaseCorrelationModel` interface
+        might calculate the matrix considering site collection and IMT (like
+        :class:`AHP2022CorrelationModel` does) or might have it pre-constructed
+        for a specific site collection and IMT, in which case they will need
+        to make sure that parameters to this function match parameters that
+        were used to pre-calculate decomposed correlation matrix.
+
+        :param sites:
+            :class:`~openquake.hazardlib.site.SiteCollection` to create
+            correlation matrix for.
+        :param imt:
+            Intensity measure type object, see :mod:`openquake.hazardlib.imt`.
+        """
+        return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
+
+def ahp2022correlation(sites_or_distances, imt):
+    """
+    Returns the Aldea et al., 2022 correlation model.
+
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type (PGA or SA)
+    """
+    
+    if hasattr(sites_or_distances, 'mesh'):
+        distances = sites_or_distances.mesh.get_distance_matrix()
+    else:
+        distances = sites_or_distances
+
+    period = imt.period
+
+    if not (0 <= period <= 10.0):
+        raise ValueError(f"T = {period} is outside the valid range [0, 10.0].")
+    
+    if period <= 0.40:
+        b = 14.400 - 17.00 * period
+    elif 0.40 < period <= 0.75:
+        b = 14.743 + 7.795 * numpy.log(period)
+    elif 0.75 < period <= 3.00:
+        b = 12.500
+    else:
+        b = 5.063 + 6.769 * numpy.log(period)
+
+    rho = numpy.exp(-(distances/b) ** 0.59)
+
+    return rho
