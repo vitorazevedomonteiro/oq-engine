@@ -399,7 +399,7 @@ def ei2011correlation(sites_or_distances, imt, database=1):
     else:
         distances = sites_or_distances
 
-    if imt == 'PGA':
+    if imt.string == 'PGA':
         if database == 1:  # ESD database
             b = 13.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
@@ -409,14 +409,17 @@ def ei2011correlation(sites_or_distances, imt, database=1):
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
     
-    elif imt == 'PGV':
-        if database == 1: # ESD database
+    elif imt.string == 'PGV':
+        if database == 1:  # ESD database
             b = 21.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
+            return rho
         else: # ITACA database
             b = 14.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
+    else:
+        raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
 
 class AHP2022CorrelationModel(BaseCorrelationModel):
     """
