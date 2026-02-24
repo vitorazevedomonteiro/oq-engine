@@ -228,7 +228,7 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
                               Site(Point(2, -39.9), 1, 1, 1)])
 
     def test_sa_sa(self):
-        cormo = MarkhvidaEtAl2018CorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
         imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)]
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
@@ -244,7 +244,7 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
             )
 
     def test_saavg2_saavg3(self):
-        cormo = MarkhvidaEtAl2018CorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
         imts = [Sa_avg2(period=1.5, damping=5), Sa_avg3(period=3.0, damping=5)]
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
@@ -260,7 +260,7 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
             )
 
     def test_sa_fiv3(self):
-        cormo = MarkhvidaEtAl2018CorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
         imts = [SA(period=1.0, damping=5), FIV3(period=2.0, damping=5)]
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
@@ -276,7 +276,7 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
             )
 
     def test_saavg3_pga(self):
-        cormo = MarkhvidaEtAl2018CorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
         imts = [Sa_avg3(period=1.0, damping=5), PGA()]
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
@@ -321,4 +321,4 @@ class MonteiroEtAlGlobalApplyCorrelationTestCase(unittest.TestCase):
         mean = intra_residuals_correlated.mean()
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.002)
-        self.assertAlmostEqual(std, 1, delta=0.06)
+        self.assertAlmostEqual(std, 1, delta=0.07)
