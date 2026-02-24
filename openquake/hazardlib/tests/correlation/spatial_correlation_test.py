@@ -24,6 +24,7 @@ from openquake.hazardlib.correlation.spatial_correlation import (
     EI2012CorrelationModel,
     EI2011CorrelationModel,
     AHP2022CorrelationModel,
+    S2022CorrelationModel,
 )
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
@@ -589,4 +590,121 @@ class AHP2022ApplyCorrelationTestCase(unittest.TestCase):
         aaae(intra_residuals_correlated,
                 [[-0.71239066, 0.75376638, -0.04450308,  0.45181234, 1.34510171],
                  [ 0.20646171, 1.53065076, 0.76974308, 1.52936565, -0.42661714]],
+             decimal=6)
+        
+        
+
+
+class S2022CorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test_northItaly_database(self):
+        cormo = S2022CorrelationModel(region=1)
+        imt = SA(period=0.1, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.51971599, 1, 0.51971599],
+                     [0.51971599, 1, 0.51971599, 0.27010471],
+                     [1, 0.51971599, 1, 0.51971599],
+                     [0.51971599, 0.27010471, 0.51971599, 1]])
+
+        imt = SA(period=0.95, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.37276002, 1, 0.37276002],
+                     [0.37276002, 1, 0.37276002, 0.13895004],
+                     [1, 0.37276002, 1, 0.37276002],
+                     [0.37276002, 0.13895004, 0.37276002, 1]])
+
+    def test_centralItaly_database(self):
+        cormo = S2022CorrelationModel(region=2)
+        imt = SA(period=0.1, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.27083945, 1, 0.27083945],
+                     [0.27083945, 1, 0.27083945, 0.07335401],
+                     [1, 0.27083945, 1, 0.27083945],
+                     [0.27083945, 0.07335401, 0.27083945, 1]])
+
+        imt = SA(period=0.95, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.16149741, 1, 0.16149741],
+                     [0.16149741, 1, 0.16149741, 0.02608141],
+                     [1, 0.16149741, 1, 0.16149741],
+                     [0.16149741, 0.02608141, 0.16149741, 1]])
+        
+    def test_southItaly_database(self):
+        cormo = S2022CorrelationModel(region=3)
+        imt = SA(period=0.1, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.23012143, 1, 0.23012143],
+                     [0.23012143, 1, 0.23012143, 0.05295587],
+                     [1, 0.23012143, 1, 0.23012143],
+                     [0.23012143, 0.05295587, 0.23012143, 1]])
+
+        imt = SA(period=0.95, damping=5)
+        corma = cormo._get_correlation_matrix(self.SITECOL, imt)
+        aaae(corma, [[1, 0.1580499, 1, 0.1580499 ],
+                     [0.1580499, 1, 0.1580499, 0.02497977],
+                     [1, 0.1580499, 1, 0.1580499],
+                     [0.1580499, 0.02497977, 0.1580499, 1]])
+
+    def test_pga(self):
+        sa = SA(period=1e-50, damping=5)
+        pga = PGA()
+
+        cormo = S2022CorrelationModel(region=1)
+        corma = cormo._get_correlation_matrix(self.SITECOL, sa)
+        corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
+        self.assertTrue((corma == corma2).all())
+
+        corma = cormo._get_correlation_matrix(self.SITECOL, sa)
+        corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
+        self.assertTrue((corma == corma2).all())
+
+class S2022LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        cormo = S2022CorrelationModel(region=1)
+        lt = cormo.get_lower_triangle_correlation_matrix(self.SITECOL, SA(0.5))
+        aaae(lt, [[1.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+                  [3.30012946e-01, 9.43976406e-01, 0.00000000e+00],
+                  [3.30012946e-01, 1.16027066e-17, 9.43976406e-01]])
+
+
+class S2022ApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test(self):
+        numpy.random.seed(13)
+        cormo = S2022CorrelationModel(region=1)
+        intra_residuals_sampled = numpy.random.normal(size=(3, 100000))
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, SA(0.5), intra_residuals_sampled
+        )
+        inferred_corrcoef = numpy.corrcoef(intra_residuals_correlated)
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.002)
+        self.assertAlmostEqual(std, 1, delta=0.002)
+
+        actual_corrcoef = cormo._get_correlation_matrix(self.SITECOL, SA(0.5))
+        numpy.testing.assert_almost_equal(inferred_corrcoef, actual_corrcoef,
+                                          decimal=2)
+
+    def test_filtered_sitecol(self):
+        filtered = self.SITECOL.filtered([0, 2])
+        numpy.random.seed(13)
+        cormo = S2022CorrelationModel(region=1)
+        intra_residuals_sampled = numpy.random.normal(size=(2, 5))
+        intra_residuals_correlated = cormo.apply_correlation(
+            filtered, SA(0.5), intra_residuals_sampled)
+        aaae(intra_residuals_correlated,
+             [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
+              [ 0.26741627, 1.52329818, 0.79827663, 1.54494837, -0.54291037]],
              decimal=6)
