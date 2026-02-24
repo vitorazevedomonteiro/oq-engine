@@ -710,3 +710,194 @@ class MonteiroEtAlGlobalCorrelationModel(BaseSpatialCrossCorrelationModel):
         uncorrelated_residuals = rng.normal(0.0, 1.0, [len(sites), num_realizations, self.npcs])
         return self.apply_correlation(sites, imts, uncorrelated_residuals)
     
+    
+
+
+class DuNing2021CorrelationModel(BaseSpatialCrossCorrelationModel):
+    """
+    Implements the spatial cross-correlation model of Du and Ning, (2021) based on
+    principal component analysis and geostatistics.
+
+    Du, W., & Ning, C.-L. (2021). Modeling spatial cross-correlation of
+    multiple ground motion intensity measures (SAs, PGA, PGV, Ia, CAV, and
+    significant durations) based on principal component and geostatistical analyses.
+    Earthquake Spectra, 37(1), 486–504. https://doi.org/10.1177/8755293020952442
+
+    Attributes:
+        npcs: Number of principal components to be used (must be or 7 or 23)
+    """
+    IMs = np.array(
+        [
+            'SA(0.01)',
+            'SA(0.05)',
+            'SA(0.075)',
+            'SA(0.1)',
+            'SA(0.2)',
+            'SA(0.3)',
+            'SA(0.4)',
+            'SA(0.5)',
+            'SA(0.75)',
+            'SA(1.0)',
+            'SA(1.5)',
+            'SA(2.0)',
+            'SA(3.0)',
+            'SA(4.0)',
+            'SA(5.0)',
+            'SA(7.5)',
+            'SA(10)',
+            'PGA',
+            'PGV',
+            'DS575',
+            'DS595'
+        ]
+    )
+
+
+    PCA_COEFFS = CoeffsTable(
+        sa_damping=5,
+        table="""\
+        imt         1        2      3       4        5       6       7      8       9       10.    11       12      13      14      15     16.      17      18      19      20      21      22      23
+        SA(0.01)    0.28    -0.15   0.07    0.04	-0.05	-0.10	-0.08	0.11	0.00	-0.25	0.04	-0.19	-0.07	-0.03	0.03	0.04	0.00	-0.05	-0.21	0.03	-0.15	-0.43	-0.71
+        SA(0.05)    0.24 	-0.19	0.23	0.04	-0.18	-0.10	0.06	-0.10	-0.14	-0.16	0.21	-0.23	-0.09	0.07	-0.17	0.05	0.12	0.2 	0.3 	0.07	-0.48	0.48	0.00
+        SA(0.075)   0.21	-0.21	0.29	0.08	-0.17	0.06	0.34	-0.24	-0.16	0.08	0.11	0.01	-0.02	0.06	-0.05	0.00	0.02	0.07	0.4 	-0.04	0.56	-0.29	0.00
+        SA(0.1)     0.2	    -0.22	0.27	0.08	-0.09	0.15	0.45	-0.11	-0.06	0.21	-0.22	0.26	0.17	-0.08	0.25	-0.05	-0.13	-0.25	-0.39	-0.08	-0.25	0.16	0.00
+        SA(0.2)     0.22	-0.20	0.09	0.04	0.23	0.3	    0.11	0.53	0.47	-0.05	-0.31	0.05	-0.20	-0.05	-0.05	-0.08	0.05	0.2 	0.2 	-0.01	0.06	0.1 	0.00
+        SA(0.3)     0.24	-0.14	-0.11	0.02	0.39	0.28	-0.11	0.19	-0.06	0.15	0.53	0.08	0.33	0.16	-0.05	0.2 	0.03	-0.36	0.12	0.01	-0.03	0.02	0.00
+        SA(0.4)     0.24	-0.09	-0.19	-0.05	0.37	0.2	    -0.13	-0.19	-0.35	0.1 	0.09	0.00	-0.15	-0.01	0.18	-0.35	-0.15	0.53	-0.18	-0.08	0.03	0.02	0.00
+        SA(0.5)     0.24	-0.04	-0.25	-0.11	0.31	0.02	-0.01	-0.35	-0.19	-0.09	-0.47	0.03	-0.23	-0.17	-0.28	0.24	0.14	-0.33	0.13	0.04	-0.03	0.02	0.00
+        SA(0.75)    0.23	0.05	-0.30	-0.20	0.08	-0.19	0.22	-0.26	0.37	-0.18	-0.12	-0.13	0.42	0.34	0.33	-0.02	0.15	0.13	0.08	0.11	0.02	0.02	0.00
+        SA(1.0)     0.22	0.13	-0.27	-0.27	-0.10	-0.17	0.32	-0.05	0.31	0.00	0.37	0.21	-0.17	-0.24	-0.40	-0.20	-0.25	-0.02	-0.10	-0.07	-0.03	-0.01	0.00
+        SA(1.5)     0.19	0.22	-0.20	-0.26	-0.23	0.02	0.19	0.28	-0.18	0.32	0.06	-0.09	-0.26	-0.07	0.3	    0.51	0.15	0.15	-0.05	0.11	0.03	0.02	0.00
+        SA(2.0)     0.19	0.27	-0.10	-0.17	-0.27	0.2	    0.06	0.3     -0.34	0.06	-0.26	-0.25	0.28	0.23	-0.33	-0.38	-0.02	-0.11	0.01	-0.03	0.00	-0.02	0.00
+        SA(3.0)     0.17	0.3 	0.06	0.00    -0.25	0.38	-0.20	-0.10	-0.03	-0.44	-0.02	0.54	0.06	0.13	0.01	0.24	-0.16	0.17	0.04	0.03	-0.04	-0.03	0.00
+        SA(4.0)     0.16	0.32	0.12	0.11	-0.11	0.32	-0.14	-0.24	0.24	0.11	0.16	-0.09	-0.11	-0.20	0.08	-0.26	0.63	-0.12	-0.09	-0.08	-0.01	-0.01	0.00
+        SA(5.0)     0.15	0.32	0.15	0.24	0.06	0.17	-0.08	-0.23	0.27	0.27	-0.05	-0.40	-0.09	0.1 	-0.04	0.14	-0.54	-0.04	0.02	0.24	-0.03	0.00	0.00
+        SA(7.5)     0.12	0.31	0.08	0.37	0.23	-0.25	0.16	0.06	-0.03	0.03	-0.04	-0.01	0.13	0.12	-0.25	0.28	0.12	0.23	-0.18	-0.57	0.02	0.00	0.00
+        SA(10)      0.12	0.3 	0.01	0.41	0.2	    -0.30	0.18	0.17	-0.19	-0.03	0.02	0.26	0.01	-0.09	0.05	-0.21	0.11	0.00	0.08	0.6 	-0.01	-0.02	0.00
+        PGA         0.28	-0.15	0.07	0.04	-0.05	-0.10	-0.08	0.11	0   	-0.25	0.05	-0.19	-0.07	-0.03	0.03	0.04	0.00	-0.05	-0.21	0.03	-0.14	-0.43	0.71
+        PGV         0.26	0.13	-0.08	0.09	-0.10	-0.29	-0.23	0.11	-0.03	0.01	-0.04	0.09	-0.16	-0.04	0.44	-0.21	-0.23	-0.30	0.39	-0.41	-0.02	0.09	0.00
+        Ia          0.23	-0.12	0.19	-0.19	-0.10	-0.30	-0.43	-0.05	0.13	0.52	-0.16	0.3 	0.19	0.03	-0.19	0.02	0.09	0.19	0.04	0.11	-0.11	-0.15	0.00
+        CAV         0.26	0.01	0.25	-0.17	0.02	-0.19	-0.23	0.07	-0.01	-0.21	0.03	-0.10	0.07	-0.12	-0.01	0.04	-0.03	-0.10	-0.35	0.1 	0.55	0.47	0.00
+        RSD575	    -0.09	0.21	0.41	-0.40	0.29	-0.09	0.10 	0.00	-0.02	-0.01	0.06	0.11	-0.39	0.54	0.04	-0.10	0.06	-0.15	-0.06	0.00	-0.08	-0.07   0.00
+        RSD595	    -0.07	0.27	0.36	-0.38	0.27	0.02	0.09	0.03	-0.07	-0.10	-0.01	-0.12	0.34	-0.54	0.11	0.04	-0.09	0.1 	0.24	-0.06	-0.15	-0.14	0.00
+    """,
+    )  # noqa: E501
+
+
+    MODEL_VARIO = {
+        1: {"Cn": 1.03, "C1": 0.88, "A1": 15.0, "C2": 10.11, "A2": 200.0, "type": "iso nest"},
+        2: {"Cn": 0.36, "C1": 1.76, "A1": 25.0, "C2": 2.61, "A2": 150.0, "type": "iso nest"},
+        3: {"Cn": 0.13, "C1": 0.37, "A1": 25.0, "C2": 1.75, "A2": 200.0, "type": "iso nest"},
+        4: {"Cn": 0.09, "C1": 0.26, "A1": 20.0, "C2": 1.11, "A2": 150.0, "type": "iso nest"},
+        5: {"Cn": 0.10, "C1": 0.32, "A1": 15.0, "C2": 0.45, "A2": 150.0, "type": "iso nest"},
+        6: {"Cn": 0.11, "C1": 0.13, "A1": 25.0, "C2": 0.35, "A2": 250.0, "type": "iso nest"},
+        7: {"Cn": 0.06, "C1": 0.16, "A1": 25.0, "C2": 0.25, "A2": 250.0, "type": "iso nest"},
+        8: {"Cn": 0.10, "C1": 0.13, "A1": 20.0, "C2": 0.16, "A2": 200.0, "type": "iso nest"},
+        9: {"Cn": 0.11, "C1": 0.07, "A1": 25.0, "C2": 0.08, "A2": 120.0, "type": "iso nest"},
+        10: {"Cn": 0.13, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        11: {"Cn": 0.16, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        12: {"Cn": 0.14, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        13: {"Cn": 0.15, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        14: {"Cn": 0.14, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        15: {"Cn": 0.12, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        16: {"Cn": 0.13, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        17: {"Cn": 0.12, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        18: {"Cn": 0.12, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        19: {"Cn": 0.09, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        20: {"Cn": 0.09, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        21: {"Cn": 0.06, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        22: {"Cn": 0.04, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+        23: {"Cn": 0.00, "C1": 0.0, "A1": 0.0, "C2": 0.0, "A2": 0.0, "type": "nug"},
+    }
+
+    def __init__(self, **kwargs):
+        """
+        Args:
+            num_pcs = Number of principal components to be used
+        """
+
+        super().__init__(**kwargs)
+        self.npcs = int(kwargs.get("num_pcs", 7))
+        if self.npcs not in (7, 23):
+            raise ValueError("Number of principal components must be either 7 or 23 (%g given)" % self.npcs)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.npcs} Principal Components)"
+
+    def get_correlation_model(self, distances: np.ndarray, imts: List):
+        """Correlation model is not relevant in this context"""
+        pass
+
+    def get_lower_triangle_correlation_matrix(self, sites: SiteCollection, imts: List):
+        """In this case the lower triangle correlation matrix has a different
+        interpretation as here it has the dimension
+        [num_sites, num_sites, num principal components]
+        """
+        # Get the distance matrix for the sites
+        distance_matrix = sites.mesh.get_distance_matrix()
+        model_vario = deepcopy(self.MODEL_VARIO)
+        if self.npcs == 7:
+            # If 7 principal components are used then scale down the variance of 0.90
+            scale_factor = 0.90
+            for i in range(1, 24):
+                model_vario[i]["Cn"] /= scale_factor
+                if model_vario[i]["type"] != "nug":
+                    model_vario[i]["C1"] /= scale_factor
+                    model_vario[i]["C2"] /= scale_factor
+        # Build the covariance matrices
+        n_y, n_x = distance_matrix.shape
+        self.cache["corma"] = np.empty([n_y, n_x, self.npcs])
+        for i in range(self.npcs):
+            var_model = model_vario[i + 1]
+            if var_model["type"] == "nug":
+                cov = get_nugget_cov(var_model, distance_matrix)
+            else:
+                cov = get_isotropic_nested_cov(var_model, distance_matrix)
+            self.cache["corma"][:, :, i] = np.linalg.cholesky(cov)
+        return
+
+    def apply_correlation(self, sites: SiteCollection, imts: List, residuals: np.ndarray):
+        """Apply the correlation models to the arrays on simulated residuals"""
+        # Get the required PCA coefficients for the corresponding period
+        pca_coeffs = {}
+        for imt in imts:
+            pca_coeff = self.PCA_COEFFS[imt]
+            pca_coeffs[imt] = np.array(
+                [[pca_coeff["{:g}".format(i + 1)] for i in range(self.npcs)]]
+            ).T
+        nimts = len(imts)
+        if not self.cache["corma"]:
+            # Get the lower covariance matrices
+            logging.info("--- Building lower triangle correlation matrices")
+            self.get_lower_triangle_correlation_matrix(sites, imts)
+            logging.info("--- done!")
+        nlocs, nsims, _ = residuals.shape
+        # Get simulated PCA matrices for each realisation of residuals
+        logging.info("--- Generating spatially cross-correlated residuals")
+        sim_pcas = np.empty([nlocs, nsims, self.npcs])
+        for i in range(self.npcs):
+            logging.info("--- --- Processing principal component %g of %g" % (i + 1, self.npcs))
+            for j in range(nsims):
+                res = residuals[:, [j], [i]]
+                sim_pcas[:, j, i] = (self.cache["corma"][:, :, i] @ res)[:, 0]
+
+        sim_results = np.zeros([nimts, nlocs, nsims])
+        for i, imt in enumerate(imts):
+            for j in range(nsims):
+                sim_results[i, :, j] = (sim_pcas[:, j, :] @ pca_coeffs[imt])[:, 0]
+        logging.info("--- --- done!")
+        return sim_results
+
+    def sample(
+        self,
+        num_realizations: int,
+        sites: SiteCollection,
+        imts: List,
+        rng: Optional[np.random.Generator] = None,
+    ) -> np.ndarray:
+        """ """
+        if not rng:
+            rng = np.random.default_rng()
+        uncorrelated_residuals = rng.normal(0.0, 1.0, [len(sites), num_realizations, self.npcs])
+        return self.apply_correlation(sites, imts, uncorrelated_residuals)
+    
