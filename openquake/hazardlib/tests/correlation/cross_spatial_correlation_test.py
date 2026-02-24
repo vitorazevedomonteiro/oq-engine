@@ -21,7 +21,7 @@ from openquake.hazardlib.imt import SA, Sa_avg2, Sa_avg3, PGA, PGV, FIV3, CAV
 from openquake.hazardlib.correlation.cross_spatial_correlation import (
     LothBaker2013CorrelationModel,
     MarkhvidaEtAl2018CorrelationModel,
-    MonteiroEtAlGlobalCorrelationModel,
+    MonteiroEtAlGlobal2026CorrelationModel,
     DuNing2021CorrelationModel)
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
@@ -224,14 +224,14 @@ class MarkhvidaEtAl2018ApplyCorrelationTestCase(unittest.TestCase):
         self.assertAlmostEqual(std, 1, delta=0.06)
 
 
-class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
+class MonteiroEtAlGlobal2026LowerTriangleCorrelationMatrixTestCase(
         unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
 
     def test_pca_lower_triangle_corr_matrix(self):
-        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobal2026CorrelationModel(num_pcs=3)
         imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)] # does not depend on IMs
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
@@ -247,14 +247,14 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
             )
 
 
-class MonteiroEtAlGlobalApplyCorrelationTestCase(unittest.TestCase):
+class MonteiroEtAlGlobal2026ApplyCorrelationTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
 
     def test_sa_fiv3(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobal2026CorrelationModel(num_pcs=3)
 
         # Two IMTs --> cross-IMT correlation
         imts = [SA(period=0.5, damping=5), FIV3(period=3.0, damping=5)]
@@ -281,7 +281,7 @@ class MonteiroEtAlGlobalApplyCorrelationTestCase(unittest.TestCase):
 
     def test_saavg2_pga(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
+        cormo = MonteiroEtAlGlobal2026CorrelationModel(num_pcs=3)
 
         # Two IMTs --> cross-IMT correlation
         imts = [Sa_avg2(period=0.5, damping=5), PGA()]
