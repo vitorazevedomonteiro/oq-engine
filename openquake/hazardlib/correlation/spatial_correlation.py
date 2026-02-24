@@ -20,6 +20,8 @@ spatially-distributed ground-shaking intensities.
 import abc
 import logging
 import numpy
+from scipy.interpolate import interp1d
+
 
 
 class BaseCorrelationModel(metaclass=abc.ABCMeta):
