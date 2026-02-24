@@ -760,11 +760,12 @@ class DW2013CorrelationModel(BaseCorrelationModel):
         Intensity Measure Type: SA(T) and PGA
     """
     
-    def __init__(self):
+    def __init__(self, beta_vs30):
         self.cache = {}  # imt -> correlation model
+        self.beta_vs30 = beta_vs30
 
-    def _get_correlation_matrix(self, sites, imt):
-        return dw2013correlation(sites, imt)
+    def _get_correlation_matrix(self, sites, imt, beta_vs30):
+        return dw2013correlation(sites, imt, beta_vs30)
 
     def get_lower_triangle_correlation_matrix(self, sites, imt):
         """
@@ -806,6 +807,8 @@ def dw2013correlation(sites_or_distances, imt, beta_vs30):
         SiteCollection instance o distance matrix
     :param imt:
         Intensity Measure Type: PGA
+    :param beta_vs30:
+        correlation range of the Vs30
     """
     
     if hasattr(sites_or_distances, 'mesh'):
