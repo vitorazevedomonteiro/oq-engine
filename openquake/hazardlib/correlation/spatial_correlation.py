@@ -728,12 +728,12 @@ def sw2013correlation(sites_or_distances, imt):
     else:
         distances = sites_or_distances
 
-    if imt == 'PGA':
+    if imt.string == 'PGA':
         b = 0.7156
         a = -0.0856
         rho = numpy.exp(a*(distances**b))
         return rho
-    elif imt == 'PGV':
+    elif imt.string == 'PGV':
         b = 0.784
         a = -0.0837
         rho = numpy.exp(a*(distances**b))
