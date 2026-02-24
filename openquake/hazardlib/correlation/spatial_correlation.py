@@ -338,3 +338,82 @@ def ei2012correlation(sites_or_distances, imt, database=1):
         b = 8.6 + 11.6 * period
         rho = numpy.exp(-(3*distances)/b)
         return rho
+
+
+class EI2011CorrelationModel(BaseCorrelationModel):
+    """
+    Esposito, S., & Iervolino, I. (2011). 
+    PGA and PGV Spatial Correlation Models Based on European Multievent Datasets. 
+    Bulletin of the Seismological Society of America, 101(5), 2532–2541. 
+    https://doi.org/10.1785/0120110117
+
+    :param database:
+        Boolean value to indicate whether "1" or "2" from which database should be 
+        applied. ``1`` value means that the values showed are expected to be
+        from ESM database, and ``2`` means otherwise.
+    """
+    def __init__(self, database):
+        self.database = database
+        self.cache = {}  # imt -> correlation model
+
+    def _get_correlation_matrix(self, sites, imt):
+        return ei2011correlation(sites, imt, self.database)
+
+    def get_lower_triangle_correlation_matrix(self, sites, imt):
+        """
+        Get lower-triangle matrix as a result of Cholesky-decomposition
+        of correlation matrix.
+
+        The resulting matrix should have zeros on values above
+        the main diagonal.
+
+        The actual implementations of :class:`BaseCorrelationModel` interface
+        might calculate the matrix considering site collection and IMT (like
+        :class:`EI2011CorrelationModel` does) or might have it pre-constructed
+        for a specific site collection and IMT, in which case they will need
+        to make sure that parameters to this function match parameters that
+        were used to pre-calculate decomposed correlation matrix.
+
+        :param sites:
+            :class:`~openquake.hazardlib.site.SiteCollection` to create
+            correlation matrix for.
+        :param imt:
+            Intensity measure type object, see :mod:`openquake.hazardlib.imt`.
+        """
+        return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
+
+def ei2011correlation(sites_or_distances, imt, database=1):
+    """
+    Returns the Esposito and Iervolino 2011 correlation model.
+
+    :param sites_or_distances:
+        SiteCollection instance o distance matrix
+    :param imt:
+        Intensity Measure Type (PGA or PGV)
+    :param database:
+        if 1 calculates for ESM database
+        otherwise calculates for ITACA database
+    """
+    if hasattr(sites_or_distances, 'mesh'):
+        distances = sites_or_distances.mesh.get_distance_matrix()
+    else:
+        distances = sites_or_distances
+
+    if imt == 'PGA':
+        if database == 1:  # ESD database
+            b = 13.5
+            rho = 1 - (1 - numpy.exp(-(3*distances)/b))
+            return rho
+        else: # ITACA database
+            b = 11.5
+            rho = 1 - (1 - numpy.exp(-(3*distances)/b))
+            return rho
+    
+    elif imt == 'PGV':
+        if database == 1: # ESD database
+            b = 21.5
+            rho = 1 - (1 - numpy.exp(-(3*distances)/b))
+        else: # ITACA database
+            b = 14.5
+            rho = 1 - (1 - numpy.exp(-(3*distances)/b))
+            return rho
