@@ -182,8 +182,8 @@ class CoeffsTable(object):
         for line in lines:
             row = line.split()
             imt_name_or_period = (
-                row[0] if row[0].startswith("AvgSA") or
-                row[0].startswith("SDi") else row[0].upper())
+                row[0] if row[0].startswith(("AvgSA", "SDi", "Sa_avg2", "Sa_avg3")) 
+                else row[0].upper())
             if imt_name_or_period == 'SA':  # protect against stupid mistakes
                 raise ValueError('specify period as float value '
                                  'to declare SA IMT')
