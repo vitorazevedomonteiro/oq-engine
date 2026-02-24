@@ -17,9 +17,12 @@
 import unittest
 import numpy
 
-from openquake.hazardlib.imt import SA, Sa_avg2, Sa_avg3, PGA, PGV, FIV3
+from openquake.hazardlib.imt import SA, Sa_avg2, Sa_avg3, PGA, PGV, FIV3, CAV
 from openquake.hazardlib.correlation.cross_spatial_correlation import (
-    LothBaker2013CorrelationModel, MarkhvidaEtAl2018CorrelationModel, MonteiroEtAlGlobalCorrelationModel)
+    LothBaker2013CorrelationModel,
+    MarkhvidaEtAl2018CorrelationModel,
+    MonteiroEtAlGlobalCorrelationModel,
+    DuNing2021CorrelationModel)
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
 
@@ -227,9 +230,9 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
 
-    def test_sa_sa(self):
+    def test_pca_lower_triangle_corr_matrix(self):
         cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
-        imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)]
+        imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)] # does not depend on IMs
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
         aaae(lt, [[[4.71568827, 2.19882828, 1.18072932],
@@ -243,60 +246,13 @@ class MonteiroEtAlGlobalLowerTriangleCorrelationMatrixTestCase(
                    [4.20486817, 1.82145089, 0.96219829]]]
             )
 
-    def test_saavg2_saavg3(self):
-        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
-        imts = [Sa_avg2(period=1.5, damping=5), Sa_avg3(period=3.0, damping=5)]
-        cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
-        lt = cormo.cache["corma"]
-        aaae(lt, [[[4.71568827, 2.19882828, 1.18072932],
-                   [0, 0, 0],
-                   [0, 0, 0]],
-                  [[2.04622712, 1.20726616, 0.66510701],
-                   [4.24860806, 1.83775793, 0.97557901],
-                   [0, 0, 0]],
-                  [[2.04622712, 1.20726616, 0.66510701],
-                   [0.60807409, 0.24427623, 0.16102439],
-                   [4.20486817, 1.82145089, 0.96219829]]]
-            )
-
-    def test_sa_fiv3(self):
-        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
-        imts = [SA(period=1.0, damping=5), FIV3(period=2.0, damping=5)]
-        cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
-        lt = cormo.cache["corma"]
-        aaae(lt, [[[4.71568827, 2.19882828, 1.18072932],
-                   [0, 0, 0],
-                   [0, 0, 0]],
-                  [[2.04622712, 1.20726616, 0.66510701],
-                   [4.24860806, 1.83775793, 0.97557901],
-                   [0, 0, 0]],
-                  [[2.04622712, 1.20726616, 0.66510701],
-                   [0.60807409, 0.24427623, 0.16102439],
-                   [4.20486817, 1.82145089, 0.96219829]]]
-            )
-
-    def test_saavg3_pga(self):
-        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
-        imts = [Sa_avg3(period=1.0, damping=5), PGA()]
-        cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
-        lt = cormo.cache["corma"]
-        aaae(lt, [[[4.71568827, 2.19882828, 1.18072932],
-                   [0, 0, 0],
-                   [0, 0, 0]],
-                  [[2.04622712, 1.20726616, 0.66510701],
-                   [4.24860806, 1.83775793, 0.97557901],
-                   [0, 0, 0]],
-                  [[2.04622712, 1.20726616, 0.66510701],
-                   [0.60807409, 0.24427623, 0.16102439],
-                   [4.20486817, 1.82145089, 0.96219829]]]
-            )
 
 class MonteiroEtAlGlobalApplyCorrelationTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
 
-    def test(self):
+    def test_sa_fiv3(self):
         numpy.random.seed(13)
         cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
 
@@ -322,3 +278,145 @@ class MonteiroEtAlGlobalApplyCorrelationTestCase(unittest.TestCase):
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.002)
         self.assertAlmostEqual(std, 1, delta=0.07)
+
+    def test_saavg2_pga(self):
+        numpy.random.seed(13)
+        cormo = MonteiroEtAlGlobalCorrelationModel(num_pcs=3)
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [Sa_avg2(period=0.5, damping=5), PGA()]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.002)
+        self.assertAlmostEqual(std, 1, delta=0.12)
+
+
+
+
+
+class DuNing2021LowerTriangleCorrelationMatrixTestCase(
+        unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test_pca_lower_triangle_corr_matrix(self):
+        cormo = DuNing2021CorrelationModel(num_pcs=7)
+        imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)] # does not depend on IMs
+        cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
+        lt = cormo.cache["corma"]
+        aaae(lt, [[[3.65452535, 2.29249985, 1.58113883, 1.27366488, 0.98319208, 0.80966385, 0.72264945],
+                   [0, 0, 0, 0, 0, 0, 0],
+                   [0, 0, 0, 0, 0, 0, 0]],
+                  [[2.63054635, 1.23738716, 1.10931976, 0.81803787, 0.44626876, 0.46728999, 0.40115419],
+                   [2.5368842,  1.92987786, 1.12668082, 0.97623576, 0.87607697, 0.6612077, 0.60108031],
+                   [0, 0, 0, 0, 0, 0, 0]],
+                  [[2.63054635, 1.23738716, 1.10931976, 0.81803787, 0.44626876, 0.46728999, 0.40115419],
+                   [0.44885041, 0.24005588, 0.16936716, 0.134822, 0.14323908, 0.1352941, 0.10667158],
+                   [2.49686098, 1.91488948, 1.11387811, 0.96688122, 0.86428781, 0.64721799, 0.59153927]]]
+            )
+
+
+class DuNing2021CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test_sa_sa(self):
+        numpy.random.seed(13)
+        cormo = DuNing2021CorrelationModel(num_pcs=7)
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(period=0.5, damping=5), SA(period=3.0, damping=5)]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.005)
+        self.assertAlmostEqual(std, 1, delta=0.07)
+
+    def test_sa_pga(self):
+        numpy.random.seed(13)
+        cormo = DuNing2021CorrelationModel(num_pcs=7)
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(period=0.5, damping=5), PGA()]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.003)
+        self.assertAlmostEqual(std, 1, delta=0.07)
+        
+
+    def test_sa_cav(self):
+        numpy.random.seed(13)
+        cormo = DuNing2021CorrelationModel(num_pcs=7)
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(period=0.5, damping=5), CAV()]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.003)
+        self.assertAlmostEqual(std, 1, delta=0.07)
+
