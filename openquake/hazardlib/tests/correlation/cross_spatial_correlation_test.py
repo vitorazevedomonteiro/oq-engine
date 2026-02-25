@@ -17,7 +17,7 @@
 import unittest
 import numpy
 
-from openquake.hazardlib.imt import SA, Sa_avg2, Sa_avg3, PGA, PGV, FIV3, CAV
+from openquake.hazardlib.imt import SA, Sa_avg2, Sa_avg3, PGA, FIV3, CAV
 from openquake.hazardlib.correlation.cross_spatial_correlation import (
     LothBaker2013CorrelationModel,
     MarkhvidaEtAl2018CorrelationModel,
@@ -233,7 +233,8 @@ class MonteiroEtAlGlobal2026LowerTriangleCorrelationMatrixTestCase(
 
     def test_pca_lower_triangle_corr_matrix(self):
         cormo = MonteiroEtAlGlobal2026CorrelationModel(num_pcs=3)
-        imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)] # does not depend on IMs
+        imts = [SA(period=1.5, damping=5), SA(
+            period=3.0, damping=5)]  # does not depend on IMs
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
         aaae(lt, [[[4.71568827, 2.19882828, 1.18072932],
@@ -245,7 +246,7 @@ class MonteiroEtAlGlobal2026LowerTriangleCorrelationMatrixTestCase(
                   [[2.04622712, 1.20726616, 0.66510701],
                    [0.60807409, 0.24427623, 0.16102439],
                    [4.20486817, 1.82145089, 0.96219829]]]
-            )
+             )
 
 
 class MonteiroEtAlGlobal2026ApplyCorrelationTestCase(unittest.TestCase):
@@ -308,9 +309,6 @@ class MonteiroEtAlGlobal2026ApplyCorrelationTestCase(unittest.TestCase):
         self.assertAlmostEqual(std, 1, delta=0.12)
 
 
-
-
-
 class DuNing2021LowerTriangleCorrelationMatrixTestCase(
         unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
@@ -319,19 +317,27 @@ class DuNing2021LowerTriangleCorrelationMatrixTestCase(
 
     def test_pca_lower_triangle_corr_matrix(self):
         cormo = DuNing2021CorrelationModel(num_pcs=7)
-        imts = [SA(period=1.5, damping=5), SA(period=3.0, damping=5)] # does not depend on IMs
+        imts = [SA(period=1.5, damping=5), SA(
+            period=3.0, damping=5)]  # does not depend on IMs
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
-        aaae(lt, [[[3.65452535, 2.29249985, 1.58113883, 1.27366488, 0.98319208, 0.80966385, 0.72264945],
-                   [0, 0, 0, 0, 0, 0, 0],
-                   [0, 0, 0, 0, 0, 0, 0]],
-                  [[2.63054635, 1.23738716, 1.10931976, 0.81803787, 0.44626876, 0.46728999, 0.40115419],
-                   [2.5368842,  1.92987786, 1.12668082, 0.97623576, 0.87607697, 0.6612077, 0.60108031],
-                   [0, 0, 0, 0, 0, 0, 0]],
-                  [[2.63054635, 1.23738716, 1.10931976, 0.81803787, 0.44626876, 0.46728999, 0.40115419],
-                   [0.44885041, 0.24005588, 0.16936716, 0.134822, 0.14323908, 0.1352941, 0.10667158],
-                   [2.49686098, 1.91488948, 1.11387811, 0.96688122, 0.86428781, 0.64721799, 0.59153927]]]
-            )
+        aaae(lt, [
+            [[3.65452535, 2.29249985, 1.58113883, 1.27366488, 0.98319208,
+              0.80966385, 0.72264945],
+             [0, 0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0, 0]],
+            [[2.63054635, 1.23738716, 1.10931976, 0.81803787, 0.44626876,
+              0.46728999, 0.40115419],
+             [2.5368842,  1.92987786, 1.12668082, 0.97623576,
+              0.87607697, 0.6612077, 0.60108031],
+             [0, 0, 0, 0, 0, 0, 0]],
+            [[2.63054635, 1.23738716, 1.10931976, 0.81803787, 0.44626876,
+              0.46728999, 0.40115419],
+             [0.44885041, 0.24005588, 0.16936716, 0.134822,
+              0.14323908, 0.1352941, 0.10667158],
+             [2.49686098, 1.91488948, 1.11387811, 0.96688122, 0.86428781,
+              0.64721799, 0.59153927]]]
+             )
 
 
 class DuNing2021CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
@@ -392,7 +398,6 @@ class DuNing2021CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.003)
         self.assertAlmostEqual(std, 1, delta=0.07)
-        
 
     def test_sa_cav(self):
         numpy.random.seed(13)
@@ -422,17 +427,15 @@ class DuNing2021CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
         self.assertAlmostEqual(std, 1, delta=0.07)
 
 
-
-
-
-class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
+class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(
+        unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
                               Site(Point(2, -39.9), 1, 1, 1)])
 
     def test_lower_triangle_corr_matrix(self):
         cormo = MonteiroEtAlPairWise2026CorrelationModel()
-        imts = [SA(1.5), SA(3.0)] # does not depend on IMs
+        imts = [SA(1.5), SA(3.0)]  # does not depend on IMs
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
         aaae(lt, [[[1.48350454, 0.7475819],
@@ -444,12 +447,15 @@ class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.
                   [[0.65657777, 0.42579227],
                    [0.16754674, 0.07409421],
                    [1.3197043, 0.60999155]]]
-            )
+             )
 
-class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
+
+class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
+        unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
-                                Site(Point(2, -40.1), 1, 1, 1),
-                                Site(Point(2, -39.9), 1, 1, 1)])
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
     def test_sa_sa(self):
         numpy.random.seed(13)
         cormo = MonteiroEtAlPairWise2026CorrelationModel()
@@ -503,7 +509,6 @@ class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.003)
         self.assertAlmostEqual(std, 1, delta=0.1)
-        
 
     def test_sa_fiv3(self):
         numpy.random.seed(13)
@@ -585,4 +590,3 @@ class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.003)
         self.assertAlmostEqual(std, 1, delta=0.14)
-

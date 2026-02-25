@@ -23,7 +23,6 @@ import numpy
 from scipy.interpolate import interp1d
 
 
-
 class BaseCorrelationModel(metaclass=abc.ABCMeta):
     """
     Base class for spatial correlation models for spatially-distributed
@@ -344,16 +343,17 @@ def ei2012correlation(sites_or_distances, imt, database=1):
 
 class EI2011CorrelationModel(BaseCorrelationModel):
     """
-    Esposito, S., & Iervolino, I. (2011). 
-    PGA and PGV Spatial Correlation Models Based on European Multievent Datasets. 
-    Bulletin of the Seismological Society of America, 101(5), 2532–2541. 
-    https://doi.org/10.1785/0120110117
+    Esposito, S., & Iervolino, I. (2011).
+    PGA and PGV Spatial Correlation Models Based on European Multievent
+    Datasets. Bulletin of the Seismological Society of America, 101(5),
+    2532–2541. https://doi.org/10.1785/0120110117
 
     :param database:
-        Boolean value to indicate whether "1" or "2" from which database should be 
-        applied. ``1`` value means that the values showed are expected to be
-        from ESM database, and ``2`` means otherwise.
+        Boolean value to indicate whether "1" or "2" from which database
+        should be applied. ``1`` value means that the values showed are
+        expected to be from ESM database, and ``2`` means otherwise.
     """
+
     def __init__(self, database):
         self.database = database
         self.cache = {}  # imt -> correlation model
@@ -384,6 +384,7 @@ class EI2011CorrelationModel(BaseCorrelationModel):
         """
         return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
 
+
 def ei2011correlation(sites_or_distances, imt, database=1):
     """
     Returns the Esposito and Iervolino 2011 correlation model.
@@ -406,40 +407,42 @@ def ei2011correlation(sites_or_distances, imt, database=1):
             b = 13.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
-        else: # ITACA database
+        else:  # ITACA database
             b = 11.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
-    
+
     elif imt.string == 'PGV':
         if database == 1:  # ESD database
             b = 21.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
-        else: # ITACA database
+        else:  # ITACA database
             b = 14.5
             rho = 1 - (1 - numpy.exp(-(3*distances)/b))
             return rho
     else:
-        raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
+        raise ValueError(
+            f"IMT = {imt} is not the appropriate IMT for this model.")
+
 
 class AHP2022CorrelationModel(BaseCorrelationModel):
     """
     Compute spatial correlation coefficients for Sa(T) and PGA for
     Chilean earthquakes for periods between [0.0-10.0]s.
-    
-    "Aldea, S., Heresi, P., & Pastén, C. (2022). 
-    Within‐event spatial correlation of peak ground acceleration and spectral 
-    pseudo‐acceleration ordinates in the Chilean subduction zone. 
+
+    "Aldea, S., Heresi, P., & Pastén, C. (2022).
+    Within‐event spatial correlation of peak ground acceleration and spectral
+    pseudo‐acceleration ordinates in the Chilean subduction zone.
     Earthquake Engineering & Structural Dynamics, 51(11), 2575–2590.
     https://doi.org/10.1002/eqe.3674
-    
+
     :param sites_or_distances:
         SiteCollection instance o distance matrix
     :param imt:
         Intensity Measure Type (PGA or SA)
     """
-    
+
     def __init__(self):
         self.cache = {}  # imt -> correlation model
 
@@ -469,6 +472,7 @@ class AHP2022CorrelationModel(BaseCorrelationModel):
         """
         return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
 
+
 def ahp2022correlation(sites_or_distances, imt):
     """
     Returns the Aldea et al., 2022 correlation model.
@@ -478,7 +482,7 @@ def ahp2022correlation(sites_or_distances, imt):
     :param imt:
         Intensity Measure Type (PGA or SA)
     """
-    
+
     if hasattr(sites_or_distances, 'mesh'):
         distances = sites_or_distances.mesh.get_distance_matrix()
     else:
@@ -488,7 +492,7 @@ def ahp2022correlation(sites_or_distances, imt):
 
     if not (0 <= period <= 10.0):
         raise ValueError(f"T = {period} is outside the valid range [0, 10.0].")
-    
+
     if period <= 0.40:
         b = 14.400 - 17.00 * period
     elif 0.40 < period <= 0.75:
@@ -502,23 +506,26 @@ def ahp2022correlation(sites_or_distances, imt):
 
     return rho
 
+
 class S2022CorrelationModel(BaseCorrelationModel):
     """
     Compute spatial correlation coefficients for Sa(T) and PGA for
     different regions in Italy for periods between [0.0-2.0]s.
 
-    For more details please see: 
-    Schiappapietra, E., Stripajová, S., Pažák, P., Douglas, J., & Trendafiloski, G. (2022).
-    Exploring the impact of spatial correlations of earthquake ground motions in
-    the catastrophe modelling process: a case study for Italy.
-    Bulletin of Earthquake Engineering, 20(11), 5747–5773. https://doi.org/10.1007/s10518-022-01413-z
-    
+    For more details please see:
+    Schiappapietra, E., Stripajová, S., Pažák, P., Douglas, J., &
+    Trendafiloski, G. (2022).
+    Exploring the impact of spatial correlations of earthquake ground motions
+    in the catastrophe modelling process: a case study for Italy.
+    Bulletin of Earthquake Engineering, 20(11), 5747–5773.
+    https://doi.org/10.1007/s10518-022-01413-z
+
     :param sites_or_distances:
         SiteCollection instance o distance matrix
     :param imt:
         Intensity Measure Type (PGA or SA)
     """
-    
+
     def __init__(self, region):
         self.region = region
         self.cache = {}  # imt -> correlation model
@@ -549,6 +556,7 @@ class S2022CorrelationModel(BaseCorrelationModel):
         """
         return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
 
+
 def s2022correlation(sites_or_distances, imt, region=1):
     """
     Returns the Schiappapietra et al., 2022 correlation model.
@@ -563,7 +571,7 @@ def s2022correlation(sites_or_distances, imt, region=1):
             - Central Italy - 2
             - South Italy   - 3
     """
-    
+
     if hasattr(sites_or_distances, 'mesh'):
         distances = sites_or_distances.mesh.get_distance_matrix()
     else:
@@ -573,47 +581,46 @@ def s2022correlation(sites_or_distances, imt, region=1):
 
     if not (0 <= period <= 2.0):
         raise ValueError(f"T = {period} is outside the valid range [0, 2.0].")
-    
+
     if region == 1:
         if period <= 0.55:
             b = 27.48 - 52.20 * (period-0.55)
         else:
             b = 27.48 + 15.81 * (period-0.55)
-        
+
         return numpy.exp(-(3*distances)/b)
-    
+
     elif region == 2:
         if period <= 1.0:
             b = 17.87 - 8.52 * (period-1.0)
         else:
             b = 17.87 + 7.85 * (period-1.0)
-        
+
         return numpy.exp(-(3*distances)/b)
 
     elif region == 3:
         b = 23.25 - 5.44 * period
-    
-        return numpy.exp(-(3*distances)/b)
-    
 
-    
+        return numpy.exp(-(3*distances)/b)
+
+
 class S2010CorrelationModel(BaseCorrelationModel):
     """
     Compute spatial correlation coefficients for PGA for
     Taiwanese earthquakes.
 
-    For more details please see: 
-    Sokolov, V., Wenzel, F., Jean, W.-Y., & Wen, K.-L. (2010). 
-    Uncertainty and Spatial Correlation of Earthquake Ground Motion in Taiwan. 
-    Terrestrial, Atmospheric and Oceanic Sciences, 21(6), 905. 
+    For more details please see:
+    Sokolov, V., Wenzel, F., Jean, W.-Y., & Wen, K.-L. (2010).
+    Uncertainty and Spatial Correlation of Earthquake Ground Motion in Taiwan.
+    Terrestrial, Atmospheric and Oceanic Sciences, 21(6), 905.
     https://doi.org/10.3319/TAO.2010.05.03.01(T)
-    
+
     :param sites_or_distances:
         SiteCollection instance o distance matrix
     :param imt:
         Intensity Measure Type: PGA
     """
-    
+
     def __init__(self):
         self.cache = {}  # imt -> correlation model
 
@@ -643,6 +650,7 @@ class S2010CorrelationModel(BaseCorrelationModel):
         """
         return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
 
+
 def s2010correlation(sites_or_distances, imt):
     """
     Returns the Sokolov, V. et al., 2010 correlation model.
@@ -652,7 +660,7 @@ def s2010correlation(sites_or_distances, imt):
     :param imt:
         Intensity Measure Type: PGA
     """
-    
+
     if hasattr(sites_or_distances, 'mesh'):
         distances = sites_or_distances.mesh.get_distance_matrix()
     else:
@@ -664,28 +672,30 @@ def s2010correlation(sites_or_distances, imt):
         rho = numpy.exp(a*(distances**b))
         return rho
     else:
-        raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
-    
+        raise ValueError(
+            f"IMT = {imt} is not the appropriate IMT for this model.")
+
 
 class SW2013CorrelationModel(BaseCorrelationModel):
     """
     Compute spatial correlation coefficients for PGA and PGV
     for Japanese earthquakes.
 
-    For more details please see: 
-    Sokolov, V., & Wenzel, F. (2013). 
-    Further analysis of the influence of site conditions and earthquake 
-    magnitude on ground-motion within-earthquake correlation: analysis of 
-    PGA and PGV data from the K-NET and the KiK-net (Japan) networks. 
-    Bulletin of Earthquake Engineering, 11(6), 1909–1926. https://doi.org/10.1007/s10518-013-9493-9
+    For more details please see:
+    Sokolov, V., & Wenzel, F. (2013).
+    Further analysis of the influence of site conditions and earthquake
+    magnitude on ground-motion within-earthquake correlation: analysis of
+    PGA and PGV data from the K-NET and the KiK-net (Japan) networks.
+    Bulletin of Earthquake Engineering, 11(6), 1909–1926.
+    https://doi.org/10.1007/s10518-013-9493-9
 
-    
+
     :param sites_or_distances:
         SiteCollection instance o distance matrix
     :param imt:
         Intensity Measure Type: PGA
     """
-    
+
     def __init__(self):
         self.cache = {}  # imt -> correlation model
 
@@ -715,6 +725,7 @@ class SW2013CorrelationModel(BaseCorrelationModel):
         """
         return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
 
+
 def sw2013correlation(sites_or_distances, imt):
     """
     Returns the Sokolov, V., & Wenzel, F. (2013) correlation model.
@@ -724,7 +735,7 @@ def sw2013correlation(sites_or_distances, imt):
     :param imt:
         Intensity Measure Type: PGA and PGV
     """
-    
+
     if hasattr(sites_or_distances, 'mesh'):
         distances = sites_or_distances.mesh.get_distance_matrix()
     else:
@@ -741,27 +752,28 @@ def sw2013correlation(sites_or_distances, imt):
         rho = numpy.exp(a*(distances**b))
         return rho
     else:
-        raise ValueError(f"IMT = {imt} is not the appropriate IMT for this model.")
-    
+        raise ValueError(
+            f"IMT = {imt} is not the appropriate IMT for this model.")
 
-    
+
 class DW2013CorrelationModel(BaseCorrelationModel):
     """
-    Compute spatial correlation coefficients for Sa(T) and PGA 
+    Compute spatial correlation coefficients for Sa(T) and PGA
     for NGA-W1 database database for periods between [0.2-5.0]s.
 
-    For more details please see: 
-    Du, W., & Wang, G. (2013). 
-    Intra-Event Spatial Correlations for Cumulative Absolute Velocity, Arias Intensity, 
-    and Spectral Accelerations Based on Regional Site Conditions. Bulletin of the Seismological 
-    Society of America, 103(2A), 1117–1129. https://doi.org/10.1785/0120120185
-    
+    For more details please see:
+    Du, W., & Wang, G. (2013).
+    Intra-Event Spatial Correlations for Cumulative Absolute Velocity, Arias
+    Intensity, and Spectral Accelerations Based on Regional Site Conditions.
+    Bulletin of the Seismological Society of America, 103(2A), 1117–1129.
+    https://doi.org/10.1785/0120120185
+
     :param sites_or_distances:
         SiteCollection instance o distance matrix
     :param imt:
         Intensity Measure Type: SA(T) and PGA
     """
-    
+
     def __init__(self, beta_vs30):
         self.cache = {}  # imt -> correlation model
         self.beta_vs30 = beta_vs30
@@ -792,6 +804,7 @@ class DW2013CorrelationModel(BaseCorrelationModel):
         """
         return numpy.linalg.cholesky(self._get_correlation_matrix(sites, imt))
 
+
 periods = numpy.array([0.2, 0.5, 1.0, 2.0, 5.0])
 params = numpy.array([
     [4.4, 1.1],
@@ -800,6 +813,7 @@ params = numpy.array([
     [32.3, 0.5],
     [41.4, 0.4],
 ])
+
 
 def dw2013correlation(sites_or_distances, imt, beta_vs30):
     """
@@ -812,30 +826,31 @@ def dw2013correlation(sites_or_distances, imt, beta_vs30):
     :param beta_vs30:
         correlation range of the Vs30
     """
-    
+
     if hasattr(sites_or_distances, 'mesh'):
         distances = sites_or_distances.mesh.get_distance_matrix()
     else:
         distances = sites_or_distances
-    
+
     period = imt.period
 
     # Interpolate the parameters
-    interps = [interp1d(periods, params[:, i], kind='linear', fill_value='extrapolate') 
-            for i in range(2)]
+    interps = [interp1d(periods, params[:, i], kind='linear',
+                        fill_value='extrapolate')
+               for i in range(2)]
 
     if imt.string == 'PGA':
         beta = 7.45 * numpy.exp(0.07 * beta_vs30)
         rho = numpy.exp((-3 * distances) / beta)
         return rho
-    
+
     else:
         if not (0.2 <= period <= 5.0):
-            raise ValueError(f"Period = {period} is outside the valid range [0.2, 5.0].")
-        
-        c1, c2 =[f(period) for f in interps]
+            raise ValueError(
+                f"Period = {period} is outside the valid range [0.2, 5.0].")
+
+        c1, c2 = [f(period) for f in interps]
 
         beta = c1 + c2 * beta_vs30
         rho = numpy.exp((-3 * distances) / beta)
         return rho
-    

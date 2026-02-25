@@ -28,7 +28,7 @@ from openquake.hazardlib.correlation.spatial_correlation import (
     S2010CorrelationModel,
     SW2013CorrelationModel,
     DW2013CorrelationModel,
-    
+
 )
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
@@ -416,8 +416,6 @@ class EI2012ApplyCorrelationTestCase(unittest.TestCase):
              decimal=6)
 
 
-
-
 class EI2011CorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
@@ -455,6 +453,7 @@ class EI2011CorrelationMatrixTestCase(unittest.TestCase):
                      [0.10020024, 1, 0.10020024, 0.01004009],
                      [1, 0.10020024, 1, 0.10020024],
                      [0.10020024, 0.01004009, 0.10020024, 1]])
+
 
 class EI2011LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
@@ -508,9 +507,6 @@ class EI2011ApplyCorrelationTestCase(unittest.TestCase):
              [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
               [0.47023662, 1.40905247, 0.85437067, 1.51157548, -0.92797657]],
              decimal=6)
-
-
-
 
 
 class AHP2022CorrelationMatrixTestCase(unittest.TestCase):
@@ -591,12 +587,11 @@ class AHP2022ApplyCorrelationTestCase(unittest.TestCase):
         intra_residuals_sampled = numpy.random.normal(size=(2, 5))
         intra_residuals_correlated = cormo.apply_correlation(
             filtered, SA(1.0), intra_residuals_sampled)
-        aaae(intra_residuals_correlated,
-                [[-0.71239066, 0.75376638, -0.04450308,  0.45181234, 1.34510171],
-                 [ 0.20646171, 1.53065076, 0.76974308, 1.52936565, -0.42661714]],
-             decimal=6)
-        
-        
+        aaae(intra_residuals_correlated, [
+            [-0.71239066, 0.75376638, -0.04450308,  0.45181234, 1.34510171],
+            [0.20646171, 1.53065076, 0.76974308, 1.52936565, -0.42661714]
+        ],
+            decimal=6)
 
 
 class S2022CorrelationMatrixTestCase(unittest.TestCase):
@@ -636,7 +631,7 @@ class S2022CorrelationMatrixTestCase(unittest.TestCase):
                      [0.16149741, 1, 0.16149741, 0.02608141],
                      [1, 0.16149741, 1, 0.16149741],
                      [0.16149741, 0.02608141, 0.16149741, 1]])
-        
+
     def test_southItaly_database(self):
         cormo = S2022CorrelationModel(region=3)
         imt = SA(period=0.1, damping=5)
@@ -665,6 +660,7 @@ class S2022CorrelationMatrixTestCase(unittest.TestCase):
         corma = cormo._get_correlation_matrix(self.SITECOL, sa)
         corma2 = cormo._get_correlation_matrix(self.SITECOL, pga)
         self.assertTrue((corma == corma2).all())
+
 
 class S2022LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
@@ -710,10 +706,8 @@ class S2022ApplyCorrelationTestCase(unittest.TestCase):
             filtered, SA(0.5), intra_residuals_sampled)
         aaae(intra_residuals_correlated,
              [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
-              [ 0.26741627, 1.52329818, 0.79827663, 1.54494837, -0.54291037]],
+              [0.26741627, 1.52329818, 0.79827663, 1.54494837, -0.54291037]],
              decimal=6)
-
-
 
 
 class S2010CorrelationMatrixTestCase(unittest.TestCase):
@@ -743,7 +737,6 @@ class S2010LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
         aaae(lt, [[1, 0, 0],
                   [0.29387078, 0.95584516, 0],
                   [0.29387078, 0.13985169, 0.94555881]])
-
 
 
 class S2010ApplyCorrelationTestCase(unittest.TestCase):
@@ -781,8 +774,6 @@ class S2010ApplyCorrelationTestCase(unittest.TestCase):
              decimal=6)
 
 
-
-
 class SW2013CorrelationMatrixTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
@@ -797,7 +788,7 @@ class SW2013CorrelationMatrixTestCase(unittest.TestCase):
                      [0.61891268, 1, 0.61891268, 0.45480041],
                      [1, 0.61891268, 1, 0.61891268],
                      [0.61891268, 0.45480041, 0.61891268, 1]])
-        
+
     def test_pgv(self):
         cormo = SW2013CorrelationModel()
         imt = PGV()
@@ -884,7 +875,7 @@ class DW2013CorrelationMatrixTestCase(unittest.TestCase):
                      [0.4796166, 1, 0.4796166, 0.23003209],
                      [1, 0.4796166, 1, 0.4796166],
                      [0.4796166, 0.23003209, 0.4796166, 1]])
-    
+
     def test_pga(self):
         imt = PGA()
         cormo = DW2013CorrelationModel(beta_vs30=10)
@@ -942,8 +933,8 @@ class DW2013ApplyCorrelationTestCase(unittest.TestCase):
         intra_residuals_sampled = numpy.random.normal(size=(2, 5))
         intra_residuals_correlated = cormo.apply_correlation(
             filtered, SA(1.0), intra_residuals_sampled)
-        aaae(intra_residuals_correlated,
-                [[-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
-                 [0.21849171, 1.53601118, 0.77832185, 1.53890678, -0.44971205]],
-             decimal=6)
-        
+        aaae(intra_residuals_correlated, [
+            [-0.71239066, 0.75376638, -0.04450308, 0.45181234, 1.34510171],
+            [0.21849171, 1.53601118, 0.77832185, 1.53890678, -0.44971205]
+        ],
+            decimal=6)
