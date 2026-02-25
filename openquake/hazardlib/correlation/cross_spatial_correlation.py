@@ -22,6 +22,8 @@ from copy import deepcopy
 from scipy.interpolate import RectBivariateSpline
 from abc import abstractmethod
 from typing import Dict, List, Optional
+from pathlib import Path
+import h5py
 
 from openquake.hazardlib.site import SiteCollection
 from openquake.hazardlib.gsim.base import CoeffsTable
@@ -51,6 +53,7 @@ class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
         """
         Builds the correlation model - specific to the actual model itself
         """
+
 
     def get_lower_triangle_correlation_matrix(
             self, sites: SiteCollection, imts: List):
@@ -901,3 +904,246 @@ class DuNing2021CorrelationModel(BaseSpatialCrossCorrelationModel):
         uncorrelated_residuals = rng.normal(0.0, 1.0, [len(sites), num_realizations, self.npcs])
         return self.apply_correlation(sites, imts, uncorrelated_residuals)
     
+    
+class MonteiroEtAlPairWise2026CorrelationModel(BaseSpatialCrossCorrelationModel):
+    """
+    Implements the spatial cross-correlation model (pairwise model) of Monteiro V.A., (2026)
+    based on principal component analysis and geostatistics.
+
+    Monteiro, V.A, Aristeidou, S. and O'Reilly, G.J. (2026). Spatial cross-correlation
+    models for next-generation amplitude and cumulative intensity measures.
+    Earthquake Spectra
+    
+    Note:
+    --> This model should be applied to only two IMs. If you want to perform analysis with 
+    more than 2 IMs please use 'MonteiroEtAlGlobalCorrelationModel'.
+
+    Attributes:
+        npcs: Number of principal components is fixed to 2 because it is a pairwise model
+    """
+
+    def __init__(self, **kwargs):
+        """
+        Args:
+            npcs = Number of principal components to be used which are fixed
+            hdf5_file = File that contains all pca coefficients and model parameters
+        """
+        self.npcs = 2  # fixed by your HDF5
+        self.cache = {}
+        # Load HDF5 data once
+        
+        hdf5_path = Path(__file__).parent / 'pairwisemodels_monteiroetal26.hdf5'
+        
+        self.data = {
+            "model_parameters": {},
+            "pca_coeff": {}
+        }
+        with h5py.File(hdf5_path, 'r') as f:
+            
+            # Load model parameters
+            for pair_name in f['model_parameters'].keys():
+                self.data['model_parameters'][pair_name] = {}
+                for period_key in f['model_parameters'][pair_name].keys():
+                    self.data['model_parameters'][pair_name][period_key] = (
+                        f['model_parameters'][pair_name][period_key][:]
+                    )
+            # Load PCA coefficients
+            for pair_name in f['pca_coeff'].keys():
+                self.data['pca_coeff'][pair_name] = {}
+                for period_key in f['pca_coeff'][pair_name].keys():
+                    self.data['pca_coeff'][pair_name][period_key] = (
+                        f['pca_coeff'][pair_name][period_key][:]
+                    )
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(npcs={self.npcs})"
+    
+    def get_correlation_model(self, distances: np.ndarray, imts: List):
+        """Correlation model is not relevant in this context"""
+        pass
+
+    @staticmethod
+    def _interpolate_dfs(low_df: np.ndarray, high_df: np.ndarray, ratio: float) -> np.ndarray:
+        """
+        Interpolates between two arrays handling 1-PC vs 2-PC cases.
+        """
+        if low_df.shape == (1, 1) and high_df.shape == (1, 1):
+            return np.array([[low_df[0, 0] + (high_df[0, 0] - low_df[0, 0]) * ratio]], dtype=float)
+        if low_df.shape == (1, 1):
+            return high_df.astype(float)
+        if high_df.shape == (1, 1):
+            return low_df.astype(float)
+        if low_df.shape[1] == 1 and high_df.shape[1] == 2:
+            baseline = np.array([1.0, 1.0], dtype=float)
+            low_vals = np.column_stack([low_df[:, 0], baseline[1:]])
+            return low_vals + (high_df - low_vals) * ratio
+        if high_df.shape[1] == 1 and low_df.shape[1] == 2:
+            baseline = np.array([1.0, 1.0], dtype=float)
+            high_vals = np.column_stack([high_df[:, 0], baseline[1:]])
+            return low_df + (high_vals - low_df) * ratio
+        return low_df + (high_df - low_df) * ratio
+
+    @staticmethod
+    def _extract_period(imt) -> float:
+        """
+        Extract period from an OpenQuake IMT object.
+        Works for SA-type IMTs.
+        """
+        if not hasattr(imt, "period") or imt.period is None:
+            raise ValueError(f"IMT {imt} does not have a period.")
+        return imt.period
+        
+    def _get_pairwise_key(self, imt1, imt2) -> str:
+        period1 = imt1.period
+        period2 = imt2.period
+        return f"{period1:.2f}_{period2:.2f}"
+    
+    def _get_pair_name(self, imt1, imt2):
+        name1 = imt1.string.split("(")[0]
+        name2 = imt2.string.split("(")[0]
+        return f"{name1}-{name2}"
+
+    def _resolve_pair_name(self, imt1, imt2):
+        """
+        Return a valid pair_name stored in the HDF5.
+        """
+        name1 = imt1.string.split("(")[0]
+        name2 = imt2.string.split("(")[0]
+
+        direct = f"{name1}-{name2}"
+        reverse = f"{name2}-{name1}"
+
+        available_pairs = self.data["model_parameters"].keys()
+
+        if direct in available_pairs:
+            return direct, False  # False = not reversed
+
+        if reverse in available_pairs:
+            return reverse, True  # True = reversed order
+
+        raise ValueError(
+            f"Cross-IM spatial correlation model not available for pair "
+            f"'{name1}' and '{name2}'."
+        )
+    
+
+    def get_model_parameters(self, imt1: str, imt2: str) -> np.ndarray:
+        """Return model parameters for a pair of IMTs with interpolation if needed."""
+        
+        pair_name, reversed_order = self._resolve_pair_name(imt1, imt2)
+        key = self._get_pairwise_key(imt1, imt2)
+        
+        cache_key = f"params_{pair_name}_{key}"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        
+        available = sorted(
+            self.data["model_parameters"][pair_name].keys(),
+            key=lambda x: float(x.split("_")[0])
+        )
+
+        if key in available:
+            params = self.data["model_parameters"][pair_name][key]
+        else:
+            # Interpolation between nearest keys
+            periods = np.array([float(k.split("_")[0]) for k in available])
+            
+            T = self._extract_period(imt1)
+            lower_idx = np.searchsorted(periods, T, side='right') - 1
+            upper_idx = lower_idx + 1
+            
+            key_low = available[max(lower_idx, 0)]
+            key_high = available[min(upper_idx, len(available) - 1)]
+            
+            low_params = self.data["model_parameters"][pair_name][key_low]
+            high_params = self.data["model_parameters"][pair_name][key_high]
+            
+            T_low = float(key_low.split("_")[0])
+            T_high = float(key_high.split("_")[0])
+            
+            ratio = (T - T_low) / (T_high - T_low + 1e-12)
+
+            params = self._interpolate_dfs(low_params, high_params, ratio)
+
+        self.cache[cache_key] = params
+        return params
+
+    def get_pca_coeff(self, imt1: str, imt2: str) -> np.ndarray:
+        """Return PCA coefficients for a pair of IMTs with interpolation if needed."""
+        
+        pair_name, reversed_order = self._resolve_pair_name(imt1, imt2)
+        key = self._get_pairwise_key(imt1, imt2)
+        
+        cache_key = f"pca_{pair_name}_{key}"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        available = sorted(
+            self.data["pca_coeff"][pair_name].keys(),
+            key=lambda x: float(x.split("_")[0])
+        )
+
+        if key in available:
+            coeffs = self.data["pca_coeff"][pair_name][key]
+        else:
+            periods = np.array([float(k.split("_")[0]) for k in available])
+            
+            T = self._extract_period(imt1)
+            lower_idx = np.searchsorted(periods, T, side='right') - 1
+            upper_idx = lower_idx + 1
+            
+            key_low = available[max(lower_idx, 0)]
+            key_high = available[min(upper_idx, len(available) - 1)]
+            
+            low_coeffs = self.data["pca_coeff"][pair_name][key_low]
+            high_coeffs = self.data["pca_coeff"][pair_name][key_high]
+            
+            T_low = float(key_low.split("_")[0])
+            T_high = float(key_high.split("_")[0])
+            
+            ratio = (T - T_low) / (T_high - T_low + 1e-12)
+            coeffs = self._interpolate_dfs(low_coeffs, high_coeffs, ratio)
+
+        if reversed_order:
+            coeffs = coeffs[:, ::-1]
+        self.cache[cache_key] = coeffs
+        return coeffs
+
+    
+    def get_lower_triangle_correlation_matrix(self, sites, imts: list):
+        """Compute lower-triangle correlation matrix for a pair of IMTs."""
+        distance_matrix = sites.mesh.get_distance_matrix()
+        n_y, n_x = distance_matrix.shape
+        self.cache["corma"] = np.empty([n_y, n_x, self.npcs])
+        
+        imt1, imt2 = imts
+        model_params = self.get_model_parameters(imt1, imt2)
+        
+        for i in range(self.npcs):
+            var_model = {
+                "Cn": model_params[i, 0],
+                "C1": model_params[i, 1],
+                "A1": model_params[i, 2],
+                "C2": model_params[i, 3],
+                "A2": model_params[i, 4],
+                "type": "iso nest"
+            }
+            cov = get_isotropic_nested_cov(var_model, distance_matrix)
+            self.cache["corma"][:, :, i] = np.linalg.cholesky(cov)
+
+    def apply_correlation(self, sites, imts: List[str], residuals: np.ndarray):
+        """Apply spatial cross-correlation to a list of IMTs."""
+        imt1, imt2 = imts
+        pca_coeffs = self.get_pca_coeff(imt1, imt2)
+        self.get_lower_triangle_correlation_matrix(sites, imts)
+        sim_pcas = np.einsum('ijk,jlk->ilk', self.cache["corma"], residuals)
+        sim_results = sim_pcas @ pca_coeffs
+
+        return sim_results
+
+    
+    def sample(self, num_realizations: int, sites, imts: List[str], rng: Optional[np.random.Generator] = None):
+        if rng is None:
+            rng = np.random.default_rng()
+        uncorrelated_residuals = rng.normal(0.0, 1.0, [len(sites), num_realizations, self.npcs])
+        return self.apply_correlation(sites, imts, uncorrelated_residuals)
