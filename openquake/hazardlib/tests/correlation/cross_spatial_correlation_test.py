@@ -22,7 +22,8 @@ from openquake.hazardlib.correlation.cross_spatial_correlation import (
     LothBaker2013CorrelationModel,
     MarkhvidaEtAl2018CorrelationModel,
     MonteiroEtAlGlobal2026CorrelationModel,
-    DuNing2021CorrelationModel)
+    DuNing2021CorrelationModel,
+    MonteiroEtAlPairWise2026CorrelationModel)
 from openquake.hazardlib.site import Site, SiteCollection
 from openquake.hazardlib.geo import Point
 
@@ -419,4 +420,169 @@ class DuNing2021CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.003)
         self.assertAlmostEqual(std, 1, delta=0.07)
+
+
+
+
+
+class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                              Site(Point(2, -40.1), 1, 1, 1),
+                              Site(Point(2, -39.9), 1, 1, 1)])
+
+    def test_lower_triangle_corr_matrix(self):
+        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        imts = [SA(1.5), SA(3.0)] # does not depend on IMs
+        cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
+        lt = cormo.cache["corma"]
+        aaae(lt, [[[1.48350454, 0.7475819],
+                   [0, 0],
+                   [0, 0]],
+                  [[0.65657777, 0.42579227],
+                   [1.33029746, 0.6144751],
+                   [0, 0]],
+                  [[0.65657777, 0.42579227],
+                   [0.16754674, 0.07409421],
+                   [1.3197043, 0.60999155]]]
+            )
+
+class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(unittest.TestCase):
+    SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
+                                Site(Point(2, -40.1), 1, 1, 1),
+                                Site(Point(2, -39.9), 1, 1, 1)])
+    def test_sa_sa(self):
+        numpy.random.seed(13)
+        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(0.5), SA(3.0)]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.005)
+        self.assertAlmostEqual(std, 1, delta=0.12)
+
+    def test_sa_pga(self):
+        numpy.random.seed(13)
+        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(0.5), PGA()]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.003)
+        self.assertAlmostEqual(std, 1, delta=0.1)
+        
+
+    def test_sa_fiv3(self):
+        numpy.random.seed(13)
+        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [SA(0.5), FIV3(1.0)]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.003)
+        self.assertAlmostEqual(std, 1, delta=0.1)
+
+    def test_saavg2_saavg3(self):
+        numpy.random.seed(13)
+        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [Sa_avg2(0.5), Sa_avg3(0.9)]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.003)
+        self.assertAlmostEqual(std, 1, delta=0.14)
+
+    def test_fiv3_saavg2(self):
+        numpy.random.seed(13)
+        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+
+        # Two IMTs --> cross-IMT correlation
+        imts = [FIV3(0.5), Sa_avg2(1.0)]
+        num_sites = len(self.SITECOL)
+        num_realizations = 100000
+
+        # Sample uncorrelated residuals
+        npcs = cormo.npcs
+
+        intra_residuals_sampled = numpy.random.normal(
+            size=(num_sites, num_realizations, npcs)
+        )
+
+        # Apply correlation
+        intra_residuals_correlated = cormo.apply_correlation(
+            self.SITECOL, imts, intra_residuals_sampled
+        )
+
+        # Check mean and std of correlated residuals
+        mean = intra_residuals_correlated.mean()
+        std = intra_residuals_correlated.std()
+        self.assertAlmostEqual(mean, 0, delta=0.003)
+        self.assertAlmostEqual(std, 1, delta=0.14)
 
