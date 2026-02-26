@@ -70,11 +70,11 @@ class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
         if not self.cache["corma"]:
             # For first implementation then get the lower
             # matrix
-            logging.info("--- Building lower triangle correlation matrix")
+            logging.info("Building lower triangle correlation matrix")
             self.get_lower_triangle_correlation_matrix(sites.complete, imts)
-            logging.info("--- --- done!")
+            logging.info("done!")
         nsites = len(sites)
-        logging.info("--- Generating spatially cross-correlated residuals")
+        logging.info("Generating spatially cross-correlated residuals")
         if len(sites.complete) == nsites:
             # No filtering of sites
             corr_residuals = np.matmul(self.cache["corma"], residuals)
@@ -99,7 +99,7 @@ class BaseSpatialCrossCorrelationModel(BaseCorrelationModel):
         for i in range(len(imts)):
             residuals[i] = corr_residuals[idx, :]
             idx += nsites
-        logging.info("--- --- done!")
+        logging.info("done!")
         return residuals
 
     def sample(self,
@@ -878,12 +878,12 @@ class DuNing2021CorrelationModel(BaseSpatialCrossCorrelationModel):
         nimts = len(imts)
         if not self.cache["corma"]:
             # Get the lower covariance matrices
-            logging.info("--- Building lower triangle correlation matrices")
+            logging.info("Building lower triangle correlation matrices")
             self.get_lower_triangle_correlation_matrix(sites, imts)
-            logging.info("--- done!")
+            logging.info("done!")
         nlocs, nsims, _ = residuals.shape
         # Get simulated PCA matrices for each realisation of residuals
-        logging.info("--- Generating spatially cross-correlated residuals")
+        logging.info("Generating spatially cross-correlated residuals")
         sim_pcas = np.empty([nlocs, nsims, self.npcs])
         for i in range(self.npcs):
             logging.info(
@@ -897,7 +897,7 @@ class DuNing2021CorrelationModel(BaseSpatialCrossCorrelationModel):
             for j in range(nsims):
                 sim_results[i, :, j] = (
                     sim_pcas[:, j, :] @ pca_coeffs[imt])[:, 0]
-        logging.info("--- --- done!")
+        logging.info("done!")
         return sim_results
 
     def sample(
