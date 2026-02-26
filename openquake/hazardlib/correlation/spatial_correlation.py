@@ -61,10 +61,10 @@ class BaseCorrelationModel(metaclass=abc.ABCMeta):
         try:
             corma = self.cache[imt]
         except KeyError:
-            logging.info("--- Building lower triangle correlation matrix")
+            logging.info("Building lower triangle correlation matrix")
             corma = self.get_lower_triangle_correlation_matrix(
                 sites.complete, imt)
-            logging.info("--- --- done!")
+            logging.info("done!")
             self.cache[imt] = corma
         # if N is the length of the complete site collection, then the
         # correlation matrix has shape (N, N) and the residuals (N, s),
