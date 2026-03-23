@@ -283,7 +283,7 @@ def get_nugget_cov(var_model: Dict, dist: np.ndarray) -> np.ndarray:
     return np.eye(len(dist)) * var_model["Cn"]
 
 
-class MarkhvidaEtAl2018CorrelationModel(BaseSpatialCrossCorrelationModel):
+class MarkhvidaEtAl2018CorrelationMode(BaseSpatialCrossCorrelationModel):
     """
     Implements the spatial cross-correlation model of Markhvida et al. (2018)
     based on principal component analysis and geostatistics.
