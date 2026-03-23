@@ -347,7 +347,7 @@ class WangDu2013CorrelationModel(BaseSpatialCrossCorrelationModel):
             return 'PGA'
         elif s == 'PGV':
             return 'PGV'
-        elif s == ('Ia', 'IA'):
+        elif s.upper() == 'IA':
             return 'Ia'
         return s
     
@@ -401,7 +401,7 @@ class WangDu2013CorrelationModel(BaseSpatialCrossCorrelationModel):
         
         x, y, = distances.shape
         nimts = len(imts)
-        rho = np.zeros(nimts * x, nimts * y)
+        rho = np.zeros((nimts * x, nimts * y))
         
         idx_x = np.arange(x)
         for i in range(nimts):
