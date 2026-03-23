@@ -462,7 +462,7 @@ class WangDu2013CorrelationModel(BaseSpatialCrossCorrelationModel):
                     * (np.exp(dh / 70.0) - np.exp(dh / 10.0))
                 )
                 rho[np.ix_(idx_x, idx_y)] = block
-                idx_ += y
+                idx_y += y
             idx_x += x
         return rho
     
@@ -471,7 +471,7 @@ class WangDu2013CorrelationModel(BaseSpatialCrossCorrelationModel):
         Build the correlation model for the particular
         configuration
         """
-        family = self.classify_imts(imts)
+        family = self._classify_imts(imts)
         
         if family == '3IM':
             return self._get_3im_matrix(distances, imts)
