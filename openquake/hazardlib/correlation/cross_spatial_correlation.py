@@ -1153,17 +1153,42 @@ class MonteiroEtAlPairWise2026CorrelationModel(
         pairwise model
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, vs30cluster=0, vs30_intensity=0, **kwargs):
         """
         Args:
             npcs = Number of principal components to be used which are fixed
             hdf5_file = File that contains all pca coefficients and model
             parameters
+
+            vs30cluster:
+                0 -> use non-clustered model
+                1 -> use Vs30-clustered model
+
+            vs30_intensity:
+                Only used if vs30cluster=1
+                0 -> cluster_vs30_low
+                1 -> cluster_vs30_high
+
         """
         self.npcs = 2  # fixed by your HDF5
         self.cache = {}
-        # Load HDF5 data once
+        self.vs30cluster = vs30cluster
+        self.vs30_intensity = vs30_intensity
 
+        # Select hdf5 branch
+        if self.vs30cluster == 0:
+            self.model_key = 'non_cluster'
+        elif self.vs30cluster == 1:
+            if vs30_intensity == 0:
+                self.model_key = 'cluster_vs30_low'
+            elif vs30_intensity == 1:
+                self.model_key = 'cluster_vs30_high'
+            else:
+                raise ValueError(
+                    "For vs30cluster=1, vs30_intensity must be 0 or 1."
+                )
+
+        # Load HDF5 data once
         hdf5_path = Path(__file__).parent / \
             'pairwisemodels_monteiroetal26.hdf5'
 
@@ -1173,23 +1198,31 @@ class MonteiroEtAlPairWise2026CorrelationModel(
         }
         with h5py.File(hdf5_path, 'r') as f:
 
-            # Load model parameters
-            for pair_name in f['model_parameters'].keys():
+            # Load only the selected model branch
+            model_group = f['model_parameters'][self.model_key]
+            pca_group = f['pca_coeff'][self.model_key]
+
+            for pair_name in model_group.keys():
                 self.data['model_parameters'][pair_name] = {}
-                for period_key in f['model_parameters'][pair_name].keys():
+                for period_key in model_group[pair_name].keys():
                     self.data['model_parameters'][pair_name][period_key] = (
-                        f['model_parameters'][pair_name][period_key][:]
+                        model_group[pair_name][period_key][:]
                     )
-            # Load PCA coefficients
-            for pair_name in f['pca_coeff'].keys():
+            for pair_name in pca_group.keys():
                 self.data['pca_coeff'][pair_name] = {}
-                for period_key in f['pca_coeff'][pair_name].keys():
+                for period_key in pca_group[pair_name].keys():
                     self.data['pca_coeff'][pair_name][period_key] = (
-                        f['pca_coeff'][pair_name][period_key][:]
+                        pca_group[pair_name][period_key][:]
                     )
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(npcs={self.npcs})"
+        return (
+            f"{self.__class__.__name__}("
+            f"npcs={self.npcs},"
+            f"vs30cluster={self.vs30cluster},"
+            f"vs30_intensity={self.vs30_intensity},"
+            f"model_key='{self.model_key}')"
+        )
 
     def get_correlation_model(self, distances: np.ndarray, imts: List):
         """Correlation model is not relevant in this context"""
@@ -1219,32 +1252,63 @@ class MonteiroEtAlPairWise2026CorrelationModel(
             return low_df + (high_vals - low_df) * ratio
         return low_df + (high_df - low_df) * ratio
 
+    def _is_period_based_imt(self, imt) -> bool:
+        """
+        Return True only for IMTs whose HDF5 keys are based on period.
+        """
+        name = self._imt_name(imt)
+        return name not in {"PGA", "PGV"}
+
     @staticmethod
-    def _extract_period(imt) -> float:
+    def _sortable_token(token):
         """
-        Extract period from an OpenQuake IMT object.
-        Works for SA-type IMTs.
+        Sort numeric tokens numerically and string tokens lexicographically.
         """
-        if not hasattr(imt, "period") or imt.period is None:
-            raise ValueError(f"IMT {imt} does not have a period.")
+        try:
+            return (0, float(token))
+        except ValueError:
+            return (1, token)
+
+    def _extract_period(self, imt) -> float:
+        if not self._is_period_based_imt(imt):
+            raise ValueError(f"IMT {imt} is not period-based.")
         return imt.period
 
-    def _get_pairwise_key(self, imt1, imt2) -> str:
-        period1 = imt1.period
-        period2 = imt2.period
-        return f"{period1:.2f}_{period2:.2f}"
+    def _imt_token(self, imt) -> str:
+        """
+        Return the token used in the HDF5 dataset key for one IMT.
+        Period-based IMTs use their period; non-period IMTs use their name.
+        """
+        if self._is_period_based_imt(imt):
+            return f"{imt.period:g}"
+        return self._imt_name(imt)
 
-    def _get_pair_name(self, imt1, imt2):
-        name1 = imt1.string.split("(")[0]
-        name2 = imt2.string.split("(")[0]
-        return f"{name1}-{name2}"
+    def _imt_name(self, imt) -> str:
+        """
+        Return the IMT family name used in pair names,
+        e.g. SA, PGA, PGV.
+        """
+        return imt.string.split("(")[0]
+
+    def _get_pairwise_key(self, imt1, imt2, pair_name=None) -> str:
+        name1 = self._imt_name(imt1)
+        name2 = self._imt_name(imt2)
+
+        token1 = self._imt_token(imt1)
+        token2 = self._imt_token(imt2)
+
+        # For same family pairs like SA-SA, Sa_avg2-Sa_avg2, etc
+        # normalise order so 0.50_5.00 and 5.00_0.50 map to one stored key.
+        if name1 == name2:
+            token1, token2 = sorted([token1, token2], key=self._sortable_token)
+        return f"{token1}_{token2}"
 
     def _resolve_pair_name(self, imt1, imt2):
         """
         Return a valid pair_name stored in the HDF5.
         """
-        name1 = imt1.string.split("(")[0]
-        name2 = imt2.string.split("(")[0]
+        name1 = self._imt_name(imt1)
+        name2 = self._imt_name(imt2)
 
         direct = f"{name1}-{name2}"
         reverse = f"{name2}-{name1}"
@@ -1252,10 +1316,10 @@ class MonteiroEtAlPairWise2026CorrelationModel(
         available_pairs = self.data["model_parameters"].keys()
 
         if direct in available_pairs:
-            return direct, False  # False = not reversed
+            return direct, imt1, imt2, False  # False = not reversed
 
         if reverse in available_pairs:
-            return reverse, True  # True = reversed order
+            return reverse, imt2, imt1, True  # True = reversed order
 
         raise ValueError(
             f"Cross-IM spatial correlation model not available for pair "
@@ -1267,86 +1331,341 @@ class MonteiroEtAlPairWise2026CorrelationModel(
         Return model parameters for a pair of IMTs with interpolation
         if needed.
         """
-
-        pair_name, reversed_order = self._resolve_pair_name(imt1, imt2)
-        key = self._get_pairwise_key(imt1, imt2)
-
-        cache_key = f"params_{pair_name}_{key}"
-        if cache_key in self.cache:
-            return self.cache[cache_key]
-
-        available = sorted(
-            self.data["model_parameters"][pair_name].keys(),
-            key=lambda x: float(x.split("_")[0])
+        pair_name, r_imt1, r_imt2, reversed_order = self._resolve_pair_name(
+            imt1, imt2
         )
+        key = self._get_pairwise_key(r_imt1, r_imt2)
 
-        if key in available:
-            params = self.data["model_parameters"][pair_name][key]
-        else:
-            # Interpolation between nearest keys
-            periods = np.array([float(k.split("_")[0]) for k in available])
+        pair_data = self.data["model_parameters"][pair_name]
 
-            T = self._extract_period(imt1)
-            lower_idx = np.searchsorted(periods, T, side='right') - 1
+        # Exact match
+        if key in pair_data:
+            params = pair_data[key]
+            self.cache[key] = params
+            return params
+
+        token1 = self._imt_token(r_imt1)
+        token2 = self._imt_token(r_imt2)
+
+        has_p1 = self._is_period_based_imt(r_imt1)
+        has_p2 = self._is_period_based_imt(r_imt2)
+
+        # Same-family pair: SA-SA, Sa_avg2-Sa_avg2, etc.
+        if self._imt_name(r_imt1) == self._imt_name(r_imt2):
+            target1 = self._extract_period(r_imt1)
+            target2 = self._extract_period(r_imt2)
+            low_target, high_target = sorted([target1, target2])
+
+            candidates = []
+            for k in pair_data:
+                parts = k.split("_")
+                if len(parts) != 2:
+                    continue
+                try:
+                    a = float(parts[0])
+                    b = float(parts[1])
+                except ValueError:
+                    continue
+                a, b = sorted([a, b])
+                # keep keys with second coordinate fixed, interpolate on first
+                if np.isclose(b, high_target):
+                    candidates.append((a, k))
+
+            if not candidates:
+                raise KeyError(
+                    f"No interpolation candidates found for pair '{pair_name}'"
+                    f"and target key '{key}'."
+                )
+
+            candidates.sort(key=lambda x: x[0])
+            periods = np.array([x[0] for x in candidates], dtype=float)
+            keys = [x[1] for x in candidates]
+
+            T = low_target
+            lower_idx = np.searchsorted(periods, T, side="right") - 1
             upper_idx = lower_idx + 1
 
-            key_low = available[max(lower_idx, 0)]
-            key_high = available[min(upper_idx, len(available) - 1)]
+            key_low = keys[max(lower_idx, 0)]
+            key_high = keys[min(upper_idx, len(keys) - 1)]
 
-            low_params = self.data["model_parameters"][pair_name][key_low]
-            high_params = self.data["model_parameters"][pair_name][key_high]
+            low_params = pair_data[key_low]
+            high_params = pair_data[key_high]
 
             T_low = float(key_low.split("_")[0])
             T_high = float(key_high.split("_")[0])
 
             ratio = (T - T_low) / (T_high - T_low + 1e-12)
-
             params = self._interpolate_dfs(low_params, high_params, ratio)
 
-        self.cache[cache_key] = params
-        return params
+            self.cache[key] = params
+            return params
+
+        # Mixed pair: interpolate on the side that has a period
+        if has_p1 and not has_p2:
+            fixed_token = token2
+            candidates = []
+            for k in pair_data:
+                parts = k.split("_")
+                if len(parts) != 2:
+                    continue
+                if parts[1] != fixed_token:
+                    continue
+                try:
+                    p = float(parts[0])
+                except ValueError:
+                    continue
+                candidates.append((p, k))
+
+            if not candidates:
+                raise KeyError(
+                    f"No interpolation candidates found for pair '{pair_name}'"
+                    f"with fixed token '{fixed_token}'."
+                )
+
+            candidates.sort(key=lambda x: x[0])
+            periods = np.array([x[0] for x in candidates], dtype=float)
+            keys = [x[1] for x in candidates]
+
+            T = self._extract_period(r_imt1)
+            lower_idx = np.searchsorted(periods, T, side="right") - 1
+            upper_idx = lower_idx + 1
+
+            key_low = keys[max(lower_idx, 0)]
+            key_high = keys[min(upper_idx, len(keys) - 1)]
+
+            low_params = pair_data[key_low]
+            high_params = pair_data[key_high]
+
+            T_low = float(key_low.split("_")[0])
+            T_high = float(key_high.split("_")[0])
+
+            ratio = (T - T_low) / (T_high - T_low + 1e-12)
+            params = self._interpolate_dfs(low_params, high_params, ratio)
+
+            self.cache[key] = params
+            return params
+
+        if not has_p1 and has_p2:
+            fixed_token = token1
+            candidates = []
+            for k in pair_data:
+                parts = k.split("_")
+                if len(parts) != 2:
+                    continue
+                if parts[0] != fixed_token:
+                    continue
+                try:
+                    p = float(parts[1])
+                except ValueError:
+                    continue
+                candidates.append((p, k))
+
+            if not candidates:
+                raise KeyError(
+                    f"No interpolation candidates found for pair '{pair_name}'"
+                    f"with fixed token '{fixed_token}'."
+                )
+
+            candidates.sort(key=lambda x: x[0])
+            periods = np.array([x[0] for x in candidates], dtype=float)
+            keys = [x[1] for x in candidates]
+
+            T = self._extract_period(r_imt2)
+            lower_idx = np.searchsorted(periods, T, side="right") - 1
+            upper_idx = lower_idx + 1
+
+            key_low = keys[max(lower_idx, 0)]
+            key_high = keys[min(upper_idx, len(keys) - 1)]
+
+            low_params = pair_data[key_low]
+            high_params = pair_data[key_high]
+
+            T_low = float(key_low.split("_")[1])
+            T_high = float(key_high.split("_")[1])
+
+            ratio = (T - T_low) / (T_high - T_low + 1e-12)
+            params = self._interpolate_dfs(low_params, high_params, ratio)
+
+            self.cache[key] = params
+            return params
+
+        raise KeyError(
+            f"Could not resolve or interpolate model parameters for pair "
+            f"'{pair_name}' and key '{key}'."
+        )
 
     def get_pca_coeff(self, imt1: str, imt2: str) -> np.ndarray:
         """
         Return PCA coefficients for a pair of IMTs with interpolation
         if needed.
         """
-
-        pair_name, reversed_order = self._resolve_pair_name(imt1, imt2)
-        key = self._get_pairwise_key(imt1, imt2)
+        pair_name, r_imt1, r_imt2, reversed_order = self._resolve_pair_name(
+            imt1, imt2
+        )
+        key = self._get_pairwise_key(r_imt1, r_imt2)
 
         cache_key = f"pca_{pair_name}_{key}"
         if cache_key in self.cache:
-            return self.cache[cache_key]
+            coeffs = self.cache[cache_key]
+            if reversed_order:
+                return coeffs[:, ::-1]
+            return coeffs
 
-        available = sorted(
-            self.data["pca_coeff"][pair_name].keys(),
-            key=lambda x: float(x.split("_")[0])
-        )
+        pair_data = self.data["pca_coeff"][pair_name]
 
-        if key in available:
-            coeffs = self.data["pca_coeff"][pair_name][key]
+        # Exact match
+        if key in pair_data:
+            coeffs = pair_data[key]
         else:
-            periods = np.array([float(k.split("_")[0]) for k in available])
+            token1 = self._imt_token(r_imt1)
+            token2 = self._imt_token(r_imt2)
 
-            T = self._extract_period(imt1)
-            lower_idx = np.searchsorted(periods, T, side='right') - 1
-            upper_idx = lower_idx + 1
+            has_p1 = self._is_period_based_imt(r_imt1)
+            has_p2 = self._is_period_based_imt(r_imt2)
 
-            key_low = available[max(lower_idx, 0)]
-            key_high = available[min(upper_idx, len(available) - 1)]
+            # Same-family pair: SA-SA, Sa_avg2-Sa_avg2, etc.
+            if self._imt_name(r_imt1) == self._imt_name(r_imt2):
+                target1 = self._extract_period(r_imt1)
+                target2 = self._extract_period(r_imt2)
+                low_target, high_target = sorted([target1, target2])
 
-            low_coeffs = self.data["pca_coeff"][pair_name][key_low]
-            high_coeffs = self.data["pca_coeff"][pair_name][key_high]
+                candidates = []
+                for k in pair_data:
+                    parts = k.split("_")
+                    if len(parts) != 2:
+                        continue
+                    try:
+                        a = float(parts[0])
+                        b = float(parts[1])
+                    except ValueError:
+                        continue
 
-            T_low = float(key_low.split("_")[0])
-            T_high = float(key_high.split("_")[0])
+                    a, b = sorted([a, b])
 
-            ratio = (T - T_low) / (T_high - T_low + 1e-12)
-            coeffs = self._interpolate_dfs(low_coeffs, high_coeffs, ratio)
+                    if np.isclose(b, high_target):
+                        candidates.append((a, k))
+
+                if not candidates:
+                    raise KeyError(
+                        f"No PCA interpolation candidates found for pair "
+                        f"'{pair_name}' and target key '{key}'."
+                    )
+
+                candidates.sort(key=lambda x: x[0])
+                periods = np.array([x[0] for x in candidates], dtype=float)
+                keys = [x[1] for x in candidates]
+
+                T = low_target
+                lower_idx = np.searchsorted(periods, T, side="right") - 1
+                upper_idx = lower_idx + 1
+
+                key_low = keys[max(lower_idx, 0)]
+                key_high = keys[min(upper_idx, len(keys) - 1)]
+
+                low_coeffs = pair_data[key_low]
+                high_coeffs = pair_data[key_high]
+
+                T_low = float(key_low.split("_")[0])
+                T_high = float(key_high.split("_")[0])
+
+                ratio = (T - T_low) / (T_high - T_low + 1e-12)
+                coeffs = self._interpolate_dfs(low_coeffs, high_coeffs, ratio)
+
+            # Mixed pair: interpolate on first token if first IMT
+            # is period-based
+            elif has_p1 and not has_p2:
+                fixed_token = token2
+                candidates = []
+                for k in pair_data:
+                    parts = k.split("_")
+                    if len(parts) != 2:
+                        continue
+                    if parts[1] != fixed_token:
+                        continue
+                    try:
+                        p = float(parts[0])
+                    except ValueError:
+                        continue
+                    candidates.append((p, k))
+
+                if not candidates:
+                    raise KeyError(
+                        f"No PCA interpolation candidates found for pair "
+                        f"'{pair_name}' with fixed token '{fixed_token}'."
+                    )
+
+                candidates.sort(key=lambda x: x[0])
+                periods = np.array([x[0] for x in candidates], dtype=float)
+                keys = [x[1] for x in candidates]
+
+                T = self._extract_period(r_imt1)
+                lower_idx = np.searchsorted(periods, T, side="right") - 1
+                upper_idx = lower_idx + 1
+
+                key_low = keys[max(lower_idx, 0)]
+                key_high = keys[min(upper_idx, len(keys) - 1)]
+
+                low_coeffs = pair_data[key_low]
+                high_coeffs = pair_data[key_high]
+
+                T_low = float(key_low.split("_")[0])
+                T_high = float(key_high.split("_")[0])
+
+                ratio = (T - T_low) / (T_high - T_low + 1e-12)
+                coeffs = self._interpolate_dfs(low_coeffs, high_coeffs, ratio)
+
+            # Mixed pair: interpolate on second token if second IMT
+            # is period-based
+            elif not has_p1 and has_p2:
+                fixed_token = token1
+                candidates = []
+                for k in pair_data:
+                    parts = k.split("_")
+                    if len(parts) != 2:
+                        continue
+                    if parts[0] != fixed_token:
+                        continue
+                    try:
+                        p = float(parts[1])
+                    except ValueError:
+                        continue
+                    candidates.append((p, k))
+
+                if not candidates:
+                    raise KeyError(
+                        f"No PCA interpolation candidates found for pair "
+                        f"'{pair_name}' with fixed token '{fixed_token}'."
+                    )
+
+                candidates.sort(key=lambda x: x[0])
+                periods = np.array([x[0] for x in candidates], dtype=float)
+                keys = [x[1] for x in candidates]
+
+                T = self._extract_period(r_imt2)
+                lower_idx = np.searchsorted(periods, T, side="right") - 1
+                upper_idx = lower_idx + 1
+
+                key_low = keys[max(lower_idx, 0)]
+                key_high = keys[min(upper_idx, len(keys) - 1)]
+
+                low_coeffs = pair_data[key_low]
+                high_coeffs = pair_data[key_high]
+
+                T_low = float(key_low.split("_")[1])
+                T_high = float(key_high.split("_")[1])
+
+                ratio = (T - T_low) / (T_high - T_low + 1e-12)
+                coeffs = self._interpolate_dfs(low_coeffs, high_coeffs, ratio)
+
+            else:
+                raise KeyError(
+                    f"Could not resolve or interpolate PCA coefficients for pair"
+                    f"'{pair_name}' and key '{key}'."
+                )
 
         if reversed_order:
             coeffs = coeffs[:, ::-1]
+
         self.cache[cache_key] = coeffs
         return coeffs
 
