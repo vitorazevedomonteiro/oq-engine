@@ -248,6 +248,239 @@ class LothBaker2013CorrelationModel(BaseSpatialCrossCorrelationModel):
         f = RectBivariateSpline(periods, periods, matrix.T, kx=1, ky=1)
         return f(targets, targets).T
 
+class WangDu2013CorrelationModel(BaseSpatialCrossCorrelationModel):
+    """Implements the spatial cross-correlation model of Du & Ning (2013)
+    Wang G, Du W (2013). Spatial cross-correlation models for vector intensity
+    measures (PGA, Ia, PGV, and SAs) considering regional site conditions.
+    Bulletin of the Seismological Society of America, 103(6): 3189-3204.
+
+    Valid for SA(T) periods 0.01 to 10.0s.
+    Valid for Rv30 between 0 and 25km.
+    """
+    
+    # SA periods for interpolation
+    T = np.array([0.01, 0.1, 0.2, 0.5, 1, 2, 5, 7.5, 10.0001])
+    
+    # SA model tables
+    # Short range coregionalization matrix, P01
+    P01 = np.array(
+        [
+            [0.96, 0.90, 0.80, 0.50, 0.15, 0.09, 0.10, 0.09, 0.04],
+            [0.90, 0.96, 0.81, 0.36, 0.08, 0.04, 0.05, 0.05, 0.02],
+            [0.80, 0.81, 0.93, 0.44, 0.10, 0.05, 0.09, 0.08, 0.05],
+            [0.50, 0.36, 0.44, 0.76, 0.25, 0.17, 0.14, 0.13, 0.07],
+            [0.15, 0.08, 0.10, 0.25, 0.62, 0.45, 0.34, 0.37, 0.31],
+            [0.09, 0.04, 0.05, 0.17, 0.45, 0.54, 0.42, 0.42, 0.35],
+            [0.10, 0.05, 0.09, 0.14, 0.34, 0.42, 0.47, 0.46, 0.39],
+            [0.09, 0.05, 0.08, 0.13, 0.37, 0.42, 0.46, 0.57, 0.40],
+            [0.04, 0.02, 0.05, 0.07, 0.31, 0.35, 0.39, 0.40, 0.56],
+        ]
+    )
+    # Long range coregionalization matrix, P02
+    P02 = np.array(
+        [
+            [0.04, 0.00, 0.01, 0.04, 0.08, 0.02, 0.02, 0.00, 0.02],
+            [0.00, 0.04, 0.01, 0.00, 0.01, 0.00, 0.00, 0.00, 0.00],
+            [0.01, 0.01, 0.07, 0.08, 0.08, 0.01, 0.00, 0.00, 0.00],
+            [0.04, 0.00, 0.08, 0.24, 0.28, 0.20, 0.15, 0.13, 0.13],
+            [0.08, 0.01, 0.08, 0.28, 0.38, 0.22, 0.23, 0.18, 0.19],
+            [0.02, 0.00, 0.01, 0.20, 0.22, 0.46, 0.32, 0.25, 0.25],
+            [0.02, 0.00, 0.00, 0.15, 0.23, 0.32, 0.53, 0.43, 0.42],
+            [0.00, 0.00, 0.00, 0.13, 0.18, 0.25, 0.43, 0.43, 0.41],
+            [0.02, 0.00, 0.00, 0.13, 0.19, 0.25, 0.42, 0.41, 0.44],
+        ]
+    )
+    # The coregionalization matrix, K
+    K_SA = np.array(
+        [
+            [0.28, 0.26, 0.20, 0.13, 0.00, 0.00, 0.00, 0.00, 0.00],
+            [0.26, 0.27, 0.21, 0.10, 0.00, 0.00, 0.00, 0.00, 0.00],
+            [0.20, 0.21, 0.20, 0.10, 0.00, 0.01, 0.00, 0.00, 0.00],
+            [0.13, 0.10, 0.10, 0.11, 0.00, 0.00, 0.00, 0.00, 0.00],
+            [0.00, 0.00, 0.00, 0.00, 0.14, 0.11, 0.08, 0.10, 0.10],
+            [0.00, 0.00, 0.00, 0.00, 0.11, 0.11, 0.09, 0.11, 0.12],
+            [0.00, 0.00, 0.00, 0.00, 0.08, 0.09, 0.11, 0.12, 0.12],
+            [0.00, 0.00, 0.00, 0.00, 0.10, 0.11, 0.12, 0.14, 0.13],
+            [0.00, 0.00, 0.00, 0.00, 0.10, 0.12, 0.12, 0.13, 0.17],
+        ]
+    )
+    
+    # PGA / PGV / Ia model tables
+    IMT3 = ('PGA', 'PGV', 'Ia')
+
+    P0_3 = np.array(
+        [
+            [1.00, 0.91, 0.65],
+            [0.91, 1.00, 0.71],
+            [0.65, 0.71, 1.00],
+        ]
+    )
+    K_3 = np.array(
+        [
+            [0.28, 0.24, 0.17],
+            [0.24, 0.22, 0.16],
+            [0.17, 0.16, 0.31],
+        ]
+    )
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.rvs30 = float(kwargs.get('Rvs30', 12.5))
+        if self.rvs30 < 0.0 or self.rvs30 > 25.0:
+            raise ValueError('Rvs30 must be within the range 0-25 km')
+        
+    def __repr__(self):
+        return f"WangDu2013(Rvs30={self.rvs30:g})"
+    
+    @staticmethod
+    def interp_matrix(targets, periods, matrix):
+        """
+        Bilinear interpolation of coefficient matrix values at target periods.
+        """
+        f = RectBivariateSpline(periods, periods, matrix.T, kx=1, ky=1)
+        return f(targets, targets).T
+    
+    @staticmethod
+    def _imt_name(imt):
+        s = str(imt)
+        if s == 'PGA':
+            return 'PGA'
+        elif s == 'PGV':
+            return 'PGV'
+        elif s == ('Ia', 'IA'):
+            return 'Ia'
+        return s
+    
+    def _classify_imts(self, imts):
+        """
+        Returns:
+            "3IM" if all IMTs are in {PGA, PGV, Ia}
+            "SA" if all IMTs are PGA/SA-period family handled as SA only
+        """
+        names = [self._imt_name(imt) for imt in imts]
+        
+        is_3im = [name in self.IMT3 for name in names]
+        is_sa = []
+        for imt, name in zip(imts, names):
+            if name == 'PGA':
+                # Keep PGA in the 3IM family here
+                is_sa.append(False)
+            elif 'SA' in name:
+                is_sa.append(True)
+            else:
+                is_sa.append(False)
+        
+        if all(is_3im):
+            return "3IM"
+        if all(is_sa):
+            return "SA"
+        
+        raise ValueError(
+            "WangDu2023, as implemented here, does not support mising"
+            "SA(T) with PGA/PGV/Ia in the same request"
+        )
+    def _get_3im_matrix(self, distances, imts):
+        """
+        Correlation model for PGA / PGV / Ia
+        """
+        names = [self._imt_name(imt) for imt in imts]
+        idx_map = {"PGA": 0, "PGV": 1, "Ia": 2}
+        idx = [idx_map[name] for name in names]
+        
+        p0 = self.P0_3[np.ix_(idx, idx)]
+        k = self.K_3[np.ix_(idx, idx)]
+        
+        dh = -3.0 * distances
+        
+        if np.isscalar(distances):
+            rho = (
+                p0 * np.exp(dh / 10.0)
+                + k * (self.rvs30 / 10.0) * (np.exp(dh / 60.0) - np.exp(dh / 10.0))
+            )
+            return rho
+        
+        x, y, = distances.shape
+        nimts = len(imts)
+        rho = np.zeros(nimts * x, nimts * y)
+        
+        idx_x = np.arange(x)
+        for i in range(nimts):
+            idx_y = np.arange(y)
+            for j in range(nimts):
+                block = (
+                    p0[i, j] * np.exp(dh / 10.0)
+                    + k[i, j] * (self.rvs30 / 10.0)
+                    * (np.exp(dh / 60.0) - np.exp(dh / 10.0))
+                )
+                rho[np.ix_(idx_x, idx_y)] = block
+                idx_y += y
+            idx_x += x
+        return rho
+    
+    def _get_sa_matrix(self, distances, imts):
+        """
+        Correlation model for SA(T)
+        """
+        periods = []
+        for imt in imts:
+            if "SA" not in str(imt):
+                raise ValueError(f"WangDu2013 SA model not supported for {imt}")
+            if imt.period < 0.01 or imt.period > 10.0:
+                raise ValueError(
+                    f"Period {imt.period} out of range for WangDu2013 SA model"
+                )
+            periods.append(imt.period)
+        
+        periods = np.array(periods)
+        
+        p01 = self.interp_matrix(periods, self.T, self.P01)
+        p02 = self.interp_matrix(periods, self.T, self.P02)
+        ksa = self.interp_matrix(periods, self.T, self.K_SA)
+        
+        dh = -3.0 * distances
+        
+        if np.isscalar(distances):
+            rho = (
+                p01 * np.exp(dh / 10.0)
+                + p02 * np.exp(dh / 70.0)
+                + ksa * (self.rvs30 / 10.0)
+                * (np.exp(dh / 70.0) - np.exp(dh / 10.0))
+            )
+            return rho
+        
+        x, y = distances.shape
+        nimts = len(imts)
+        rho = np.zeros((nimts * x, nimts * y))
+        idx_x = np.arange(x)
+        for i in range(nimts):
+            idx_y = np.arange(y)
+            for j in range(nimts):
+                block = (
+                    p01[i, j] * np.exp(dh / 10.0)
+                    + p02[i, j] * np.exp(dh / 70.0)
+                    + ksa[i, j] * (self.rvs30 / 10.0)
+                    * (np.exp(dh / 70.0) - np.exp(dh / 10.0))
+                )
+                rho[np.ix_(idx_x, idx_y)] = block
+                idx_ += y
+            idx_x += x
+        return rho
+    
+    def get_correlation_model(self, distances: np.ndarray, imts: List):
+        """
+        Build the correlation model for the particular
+        configuration
+        """
+        family = self.classify_imts(imts)
+        
+        if family == '3IM':
+            return self._get_3im_matrix(distances, imts)
+        if family == 'SA':
+            return self._get_sa_matrix(distances, imts)
+        
+        raise RuntimeError('Unexpected IMT family classification')
+        
+            
 
 def get_isotropic_nested_cov(var_model: Dict, dist: np.ndarray) -> np.ndarray:
     """Returns the covariance matrix for the isotropic, nested, exponential
