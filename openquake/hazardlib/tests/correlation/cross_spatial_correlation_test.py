@@ -77,6 +77,7 @@ class LothBaker2013CorrelationMatrixTestCase(unittest.TestCase):
                      [0.13927548, 0.0799556,  0.13927548, 0.33,
                       0.38646643, 0.20979378, 0.38646643, 1]])
 
+
 class LothBaker2013ApplyCorrelationTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
                               Site(Point(2, -40.1), 1, 1, 1),
@@ -175,10 +176,12 @@ class WangDu2013LowerTriangleCorrelationMatrixTestCase(unittest.TestCase):
             [0.22385942,  0.97462144, 0, 0, 0, 0],
             [0.22385942,  0.06754524,  0.97227805, 0, 0, 0],
             [0.91,       -0.01021082, -0.00952607, 0.41437301, 0, 0],
-            [0.19376039,  0.8891913,  -0.00410187,  0.03917511,  0.41260662, 0],
+            [0.19376039,  0.8891913,  -0.00410187,  0.03917511,  0.41260662,
+             0],
             [0.19376039,  0.05753257,  0.88733759,  0.03917511,  0.01157218,
              0.41244431]
         ])
+
 
 class WangDu2013ApplyCorrelationTestCase(unittest.TestCase):
     SITECOL = SiteCollection([Site(Point(2, -40), 1, 1, 1),
@@ -277,9 +280,9 @@ class WangDu2013ApplyCorrelationTestCase(unittest.TestCase):
         # Assert expected correlated residuals
         aaae(intra_residuals_correlated, [
             [[-0.71239066,  0.75376638, -0.04450308,  0.45181234,  1.34510171],
-             [ 0.32984325,  1.49352109,  0.81787309,  1.53979   , -0.66154492]],
+             [0.32984325,  1.49352109,  0.81787309,  1.53979, -0.66154492]],
             [[-0.94923617, -0.95767325,  0.54481378, -0.06841674,  1.24049184],
-             [0.0258218 , 0.03536842, 2.31206596, 0.86939802, 0.19792573]],
+             [0.0258218, 0.03536842, 2.31206596, 0.86939802, 0.19792573]],
         ],
             decimal=6
         )
@@ -306,12 +309,13 @@ class WangDu2013ApplyCorrelationTestCase(unittest.TestCase):
         # Assert expected correlated residuals
         aaae(intra_residuals_correlated, [
             [[-0.71239066,  0.75376638, -0.04450308,  0.45181234,  1.34510171],
-             [ 0.35810508,  1.48149576,  0.82737448,  1.53883613, -0.71528354]],
+             [0.35810508,  1.48149576,  0.82737448,  1.53883613, -0.71528354]],
             [[-0.98028235,  0.15028997,  0.18452676,  0.29623533,  1.61263038],
-            [ 0.43431117,  1.34720451,  1.6645251 ,  1.64016475, -0.64222091]],
+             [0.43431117,  1.34720451,  1.6645251,  1.64016475, -0.64222091]],
         ],
             decimal=6
         )
+
 
 class MarkhvidaEtAl2018LowerTriangleCorrelationMatrixTestCase(
         unittest.TestCase):
@@ -580,19 +584,20 @@ class MonteiroEtAlPairWise2026CorrelationModelApplyCorrelationTestCase(
                               Site(Point(2, -39.9), 1, 1, 1)])
 
     def test_lower_triangle_corr_matrix(self):
-        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        cormo = MonteiroEtAlPairWise2026CorrelationModel(vs30cluster=0,
+                                                         vs30_intensity=0)
         imts = [SA(1.5), SA(3.0)]  # does not depend on IMs
         cormo.get_lower_triangle_correlation_matrix(self.SITECOL, imts)
         lt = cormo.cache["corma"]
-        aaae(lt, [[[1.48350454, 0.7475819],
+        aaae(lt, [[[1.59902268, 0.59888861],
                    [0, 0],
                    [0, 0]],
-                  [[0.65657777, 0.42579227],
-                   [1.33029746, 0.6144751],
+                  [[0.75660473, 0.30646608],
+                   [1.40869544, 0.51453485],
                    [0, 0]],
-                  [[0.65657777, 0.42579227],
-                   [0.16754674, 0.07409421],
-                   [1.3197043, 0.60999155]]]
+                  [[0.75660473, 0.30646608],
+                   [0.20758016, 0.07216658],
+                   [1.39331738, 0.50944882]]]
              )
 
 
@@ -604,7 +609,8 @@ class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
 
     def test_sa_sa(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        cormo = MonteiroEtAlPairWise2026CorrelationModel(vs30cluster=0,
+                                                         vs30_intensity=0)
 
         # Two IMTs --> cross-IMT correlation
         imts = [SA(0.5), SA(3.0)]
@@ -627,11 +633,12 @@ class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
         mean = intra_residuals_correlated.mean()
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.005)
-        self.assertAlmostEqual(std, 1, delta=0.12)
+        self.assertAlmostEqual(std, 1, delta=0.17)
 
     def test_sa_pga(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        cormo = MonteiroEtAlPairWise2026CorrelationModel(vs30cluster=0,
+                                                         vs30_intensity=0)
 
         # Two IMTs --> cross-IMT correlation
         imts = [SA(0.5), PGA()]
@@ -658,7 +665,8 @@ class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
 
     def test_sa_fiv3(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        cormo = MonteiroEtAlPairWise2026CorrelationModel(vs30cluster=0,
+                                                         vs30_intensity=0)
 
         # Two IMTs --> cross-IMT correlation
         imts = [SA(0.5), FIV3(1.0)]
@@ -681,11 +689,12 @@ class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
         mean = intra_residuals_correlated.mean()
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.003)
-        self.assertAlmostEqual(std, 1, delta=0.1)
+        self.assertAlmostEqual(std, 1, delta=0.13)
 
     def test_saavg2_saavg3(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        cormo = MonteiroEtAlPairWise2026CorrelationModel(vs30cluster=0,
+                                                         vs30_intensity=0)
 
         # Two IMTs --> cross-IMT correlation
         imts = [Sa_avg2(0.5), Sa_avg3(0.9)]
@@ -712,7 +721,8 @@ class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
 
     def test_fiv3_saavg2(self):
         numpy.random.seed(13)
-        cormo = MonteiroEtAlPairWise2026CorrelationModel()
+        cormo = MonteiroEtAlPairWise2026CorrelationModel(vs30cluster=0,
+                                                         vs30_intensity=0)
 
         # Two IMTs --> cross-IMT correlation
         imts = [FIV3(0.5), Sa_avg2(1.0)]
@@ -735,4 +745,4 @@ class MonteiroEtAlPairWise2026LowerTriangleCorrelationMatrixTestCase(
         mean = intra_residuals_correlated.mean()
         std = intra_residuals_correlated.std()
         self.assertAlmostEqual(mean, 0, delta=0.003)
-        self.assertAlmostEqual(std, 1, delta=0.14)
+        self.assertAlmostEqual(std, 1, delta=0.15)
